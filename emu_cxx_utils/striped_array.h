@@ -77,7 +77,7 @@ public:
     // Destructor
     ~striped_array()
     {
-        if (ptr) { mw_free(ptr); }
+        if (ptr) { mw_free((void*)ptr); }
     }
 
     friend void

@@ -22,7 +22,14 @@ private:
     // Bitmap representation of the next frontier
     emu::repl_copy<bitmap> next_frontier_;
     // Tracks the sum of the degrees of vertices in the frontier
-    emu::repl<long> scout_count_;
+    long scout_count_;
+
+    void queue_to_bitmap();
+    void bitmap_to_queue();
+
+    void top_down_step_with_remote_writes();
+    void top_down_step_with_migrating_threads();
+
 
 public:
 
@@ -43,7 +50,8 @@ public:
     , next_frontier_(g.num_vertices())
     , scout_count_(0)
     {
-        ack_control_init();
+        // Force ack controller singleton to initialize itself
+        ack_controller::instance();
         clear();
     }
 
@@ -58,28 +66,6 @@ public:
     , scout_count_(other.scout_count_)
     {}
 
-    void
-    queue_to_bitmap()
-    {
-        // For each item in the queue, set the corresponding bit in the bitmap
-        queue_.forall_items([](long i, bitmap& b) {
-            b.set_bit(i);
-        }, frontier_);
-    }
-
-    void
-    bitmap_to_queue()
-    {
-        // For each vertex, test whether the bit in the bitmap is set
-        // If so, add the index of the bit to the queue
-        striped_array_apply(parent_.data(), parent_.size(), 64,
-            [](long v, bitmap & b, sliding_queue & q) {
-                if (b.get_bit(v)) {
-                    q.push_back(v);
-                }
-            }, frontier_, queue_
-        );
-    }
 
     void
     clear()
@@ -115,184 +101,6 @@ public:
 
 
 
-
-/**
- * Top-down BFS step ("remote writes" variant)
- * Fire off a remote write for each edge in the frontier
- * This write travels to the home node for the destination vertex,
- * setting the source vertex as its parent.
- * Return the sum of the degrees of the vertices in the new frontier
- *
- * Overview of top_down_step_with_remote_writes()
- *   DISABLE ACKS
- *   spawn mark_queue_neighbors() on each nodelet
- *     spawn mark_queue_neighbors_worker() over a slice of the local queue
- *       IF LIGHT VERTEX
- *       call mark_neighbors_parallel() on a local array of edges
- *         call/spawn mark_neighbors() over a local array of edges
- *       ELSE IF HEAVY VERTEX
- *       spawn mark_neighbors_in_eb() for each remote edge block
- *         call mark_neighbors_parallel() on the local edge block
- *           call/spawn mark_neighbors() over the local edge block
- *   RE-ENABLE ACKS
- *   SYNC
- *   spawn populate_next_frontier() over all vertices
-*/
-
-    void
-    top_down_step_with_remote_writes()
-    {
-        ack_control_disable_acks();
-        // For each vertex in the queue...
-        queue_.forall_items([] (long v, graph& g, long * new_parent) {
-            // for each neighbor of that vertex...
-            g.forall_out_neighbors(v, 512, [](long src, long dst, long * new_parent) {
-                // write the vertex ID to the neighbor's new_parent entry.
-                new_parent[dst] = src; // Remote write
-            }, new_parent);
-        }, *g_, new_parent_.data());
-        ack_control_reenable_acks();
-
-        // Add to the queue all vertices that didn't have a parent before
-//        scout_count_ = 0;
-        g_->forall_vertices(128, [](long v, hybrid_bfs & bfs) {
-            if (bfs.parent_[v] < 0 && bfs.new_parent_[v] >= 0) {
-                // Update count with degree of new vertex
-//                bfs.scout_count_ += -bfs.parent_[v];
-                // Set parent
-                bfs.parent_[v] = bfs.new_parent_[v];
-                // Add to the queue for the next frontier
-                bfs.queue_.push_back(v);
-            }
-        }, *this);
-//        scout_count_allreduce();
-    }
-//
-///**
-// * Top-down BFS step ("migrating threads" variant)
-// * For each edge in the frontier, migrate to the dst vertex's nodelet
-// * If the dst vertex doesn't have a parent, set src as parent
-// * Then append to local queue for next frontier
-// * Return the sum of the degrees of the vertices in the new frontier
-// *
-// * Overview of top_down_step_with_migrating_threads()
-// *   spawn explore_local_frontier() on each nodelet
-// *     spawn explore_frontier_spawner() over a slice of the local queue
-// *       IF LIGHT VERTEX
-// *       call explore_frontier_parallel() on a local array of edges
-// *         call/spawn frontier_visitor over a local array of edges
-// *       ELSE IF HEAVY VERTEX
-// *       spawns explore_frontier_in_eb() for each remote edge block
-// *         call explore_frontier_parallel() on the local edge block
-// *           call/spawn frontier_visitor over the local edge block
-//*/
-//
-//    static inline void
-//    visit(long src, long dst)
-//    {
-//        // Look up the parent of the vertex we are visiting
-//        long * parent = &HYBRID_BFS.parent[dst];
-//        long curr_val = *parent;
-//        // If we are the first to visit this vertex
-//        if (curr_val < 0) {
-//            // Set self as parent of this vertex
-//            if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
-//                // Add it to the queue
-//                sliding_queue_push_back(&HYBRID_BFS.queue, dst);
-//                REMOTE_ADD(&HYBRID_BFS.scout_count, -curr_val);
-//            }
-//        }
-//    }
-//
-//// Using noinline to minimize the size of the migrating context
-//    static __attribute__((always_inline)) inline void
-//    frontier_visitor(long src, long * edges_begin, long * edges_end)
-//    {
-//        long e1, e2, e3, e4;
-//
-//        // Visit neighbors one at a time until remainder is evenly divisible by four
-//        while ((edges_end - edges_begin) % 4 != 0) {
-//            visit(src, *edges_begin++);
-//        }
-//
-//        for (long * e = edges_begin; e < edges_end;) {
-//            // Pick up four edges
-//            e4 = *e++;
-//            e3 = *e++;
-//            e2 = *e++;
-//            e1 = *e++;
-//            // Visit each neighbor without returning home
-//            // Once an edge has been traversed, we can resize to
-//            // avoid carrying it along with us.
-//            visit(src, e1); RESIZE();
-//            visit(src, e2); RESIZE();
-//            visit(src, e3); RESIZE();
-//            visit(src, e4); RESIZE();
-//        }
-//    }
-//
-//    static inline void
-//    explore_frontier_parallel(long src, long * edges_begin, long * edges_end)
-//    {
-//        long degree = edges_end - edges_begin;
-//        long grain = 64;
-//        if (degree <= grain) {
-//            // Low-degree local vertex, handle in this thread
-//            // TODO spawn here to separate from parent thread?
-//            frontier_visitor(src, edges_begin, edges_end);
-//        } else {
-//            // High-degree local vertex, spawn local threads
-//            for (long * e1 = edges_begin; e1 < edges_end; e1 += grain) {
-//                long * e2 = e1 + grain;
-//                if (e2 > edges_end) { e2 = edges_end; }
-//                cilk_spawn frontier_visitor(src, e1, e2);
-//            }
-//        }
-//    }
-//
-//    void
-//    explore_frontier_worker(sliding_queue * queue, long * queue_pos)
-//    {
-//        const long queue_end = queue->end;
-//        const long * queue_buffer = queue->buffer;
-//        long v = ATOMIC_ADDMS(queue_pos, 1);
-//        for (; v < queue_end; v = ATOMIC_ADDMS(queue_pos, 1)) {
-//            long src = queue_buffer[v];
-//            long * edges_begin = G.vertex_out_neighbors[src].local_edges;
-//            long * edges_end = edges_begin + G.vertex_out_degree[src];
-//            explore_frontier_parallel(src, edges_begin, edges_end);
-//        }
-//    }
-//
-//    void
-//    explore_local_frontier(sliding_queue * queue)
-//    {
-//        // Decide how many workers to create
-//        long num_workers = 64;
-//        long queue_size = sliding_queue_size(queue);
-//        if (queue_size < num_workers) {
-//            num_workers = queue_size;
-//        }
-//        // Spawn workers
-//        long queue_pos = queue->start;
-//        for (long t = 0; t < num_workers; ++t) {
-//            cilk_spawn explore_frontier_worker(queue, &queue_pos);
-//        }
-//    }
-//
-//    void
-//    top_down_step_with_migrating_threads()
-//    {
-//        // Spawn a thread on each nodelet to process the local queue
-//        // For each neighbor without a parent, add self as parent and append to queue
-//        mw_replicated_init(&HYBRID_BFS.scout_count, 0);
-//        for (long n = 0; n < NODELETS(); ++n) {
-//            sliding_queue * local_queue = mw_get_nth(&HYBRID_BFS.queue, n);
-//            cilk_spawn_at(local_queue) explore_local_frontier(local_queue);
-//        }
-//        cilk_sync;
-//        scout_count_allreduce();
-//    }
 
     void
     dump_queue_stats()

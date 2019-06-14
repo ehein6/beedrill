@@ -39,6 +39,7 @@ add_executable(hybrid_bfs
     sliding_queue.h
     bitmap.h
     hybrid_bfs.h
+    hybrid_bfs.cc
     hybrid_bfs_main.cc
 )
 

@@ -2,9 +2,10 @@
 
 #include <utility>
 #include <functional>
+#include <memory>
 #include <cstring>
 #include <cassert>
-#include "make_unique.h"
+#include "pointer_manipulation.h"
 
 /*
  * This header provides support for storing C++ objects in replicated memory.
@@ -244,6 +245,9 @@ public:
     // Call T's constructor with forwarded args
     : T(std::forward<Args>(args)...)
     {
+#ifdef __le64__
+        assert(emu::pmanip::get_view(this) == 0);
+#endif
         // Pointer to the object on this nodelet, which has already been constructed
         T * local = &get_nth(NODE_ID());
         // For each nodelet...
