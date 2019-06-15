@@ -155,7 +155,7 @@ public:
         // First, spawn a thread on each nodelet to handle the local queue
         for (long n = 0; n < NODELETS(); ++n) {
             sliding_queue& local_queue = get_nth(n);
-            cilk_spawn_at(local_queue) [](sliding_queue & queue, F worker, Args&&... args) {
+            cilk_spawn_at(&local_queue) [](sliding_queue & queue, F worker, Args&&... args) {
                 // Decide how many local workers to create
                 long num_workers = 64;
                 if (queue.size() < num_workers) {
