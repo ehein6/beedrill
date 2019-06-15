@@ -26,15 +26,11 @@ endif()
 
 include_directories(.)
 
-add_library(graph_loader OBJECT
+add_executable(hybrid_bfs
     graph.h
     graph.cc
     dist_edge_list.h
     dist_edge_list.cc
-)
-
-add_executable(hybrid_bfs
-    $<TARGET_OBJECTS:graph_loader>
     ack_control.h
     sliding_queue.h
     bitmap.h
@@ -43,9 +39,9 @@ add_executable(hybrid_bfs
     hybrid_bfs_main.cc
 )
 
-add_executable(tc
-    $<TARGET_OBJECTS:graph_loader>
-    tc.h
-    tc.c
-    tc_main.c
-)
+#add_executable(tc
+#    $<TARGET_OBJECTS:graph_loader>
+#    tc.h
+#    tc.c
+#    tc_main.c
+#)
