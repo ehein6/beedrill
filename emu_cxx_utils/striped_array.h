@@ -89,13 +89,7 @@ public:
     }
 
     // Copy constructor
-    striped_array(const striped_array & other) : striped_array(other.n)
-    {
-        // Copy elements over in parallel
-        other.parallel_apply([&](long i) {
-            ptr[i] = other[i];
-        });
-    }
+    striped_array(const striped_array & other) = delete;
 
     // Assignment operator (using copy-and-swap idiom)
     striped_array& operator= (striped_array other)

@@ -126,6 +126,12 @@ public:
         return *static_cast<T*>(mw_get_nth(this, n));
     }
 
+    const T& get_nth(long n) const
+    {
+        assert(n < NODELETS());
+        return *static_cast<const T*>(mw_get_nth((void*)this, n));
+    }
+
     // Wrapper constructor to copy T to each nodelet after running the requested constructor
     template<typename... Args>
     explicit repl_copy (Args&&... args)
@@ -143,20 +149,12 @@ public:
         }
     }
 
-//    // Copy constructor
-//    repl_copy(const repl_copy& other)
-//    {
-//        for (long i = 0; i < NODELETS(); ++i) {
-//            new (get_nth(i)) T(other);
-//        }
-//    }
-
-    // Shallow copy constructor
-    repl_copy(const repl_copy& other, shallow_copy)
-    : T(other)
+    // Copy constructor
+    repl_copy(const repl_copy& other)
+    : T(other, shallow_copy())
     {
         for (long i = 0; i < NODELETS(); ++i) {
-            new (&get_nth(i)) T(other, shallow_copy());
+            do_shallow_copy(&get_nth(i), &other.get_nth(i));
         }
     }
 

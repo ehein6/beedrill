@@ -29,8 +29,8 @@ struct dist_edge_list
     dist_edge_list(const dist_edge_list& other, emu::shallow_copy)
     : num_vertices_(other.num_vertices_)
     , num_edges_(other.num_edges_)
-    , src_(other.src_, emu::shallow_copy())
-    , dst_(other.dst_, emu::shallow_copy())
+    , src_(other.src_)
+    , dst_(other.dst_)
     {}
 
     dist_edge_list(const dist_edge_list& other) = delete;
