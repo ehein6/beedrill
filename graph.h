@@ -16,11 +16,11 @@ struct graph {
 
     // Distributed vertex array
     // number of neighbors for this vertex (on all nodelets)
-    emu::repl_copy<emu::striped_array<long>> vertex_out_degree_;
+    emu::striped_array<long> vertex_out_degree_;
 
     // Pointer to local edge array (light vertices only)
     // OR replicated edge block pointer (heavy vertices only)
-    emu::repl_copy<emu::striped_array<long *>> vertex_out_neighbors_;
+    emu::striped_array<long *> vertex_out_neighbors_;
 
     // Total number of edges stored on each nodelet
     long num_local_edges_;

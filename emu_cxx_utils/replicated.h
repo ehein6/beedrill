@@ -158,6 +158,8 @@ public:
         }
     }
 
+    repl_copy(const repl_copy& other, shallow_copy) = delete;
+
     friend void swap(repl_copy& lhs, repl_copy& rhs)
     {
         using std::swap;

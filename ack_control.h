@@ -20,7 +20,7 @@ public:
     instance()
     {
         // Singleton pattern, instance will be constructed on first use only
-        static ack_controller instance;
+        static replicated ack_controller instance;
         return instance;
     }
 
