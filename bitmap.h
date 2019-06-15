@@ -6,7 +6,6 @@
 class bitmap
 {
 private:
-    emu::repl<long> num_words_;
     emu::repl_copy<emu::striped_array<unsigned long>> words_;
 
     // We stripe at the bit level, not the word level
@@ -29,16 +28,16 @@ private:
 
 public:
 
+    // Constructor
     explicit
     bitmap(long n)
-    : num_words_ { (n + 63) / 64 }
-    , words_((long)num_words_)
-    {
-    }
+    // Need 1 word per 64 bits; divide and round up
+    : words_((n + 63) / 64)
+    {}
 
-    bitmap(const bitmap& other, emu::shallow_copy)
-    : num_words_(other.num_words_)
-    , words_(other.words_)
+    // Shallow copy constructor
+    bitmap(const bitmap& other, emu::shallow_copy tag)
+    : words_(other.words_, tag)
     {}
 
     // Set all bits to zero
@@ -46,7 +45,7 @@ public:
     clear()
     {
         // TODO parallelize with emu_local_for
-        for (long i = 0; i < num_words_; ++i) {
+        for (long i = 0; i < words_.size(); ++i) {
             words_[i] = 0;
         }
     }
@@ -62,7 +61,7 @@ public:
     void
     dump()
     {
-        for (long i = 0; i < num_words_ * 64; ++i) {
+        for (long i = 0; i < words_.size() * 64; ++i) {
             if (get_bit(i)) {
                 printf("%li ", i);
             }
@@ -87,7 +86,6 @@ public:
     {
         using std::swap;
         swap(lhs.words_, rhs.words_);
-        swap(lhs.num_words_, rhs.num_words_);
     }
 
 //
