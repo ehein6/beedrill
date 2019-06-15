@@ -10,7 +10,7 @@ namespace pmanip {
 template <typename T>
 long get_view(T * ptr)
 {
-    return ( (((long)(ptr)) && __MW_VIEW_MASK__) >> __MW_VIEW_SHIFT__);
+    return ( (((long)(ptr)) & __MW_VIEW_MASK__) >> __MW_VIEW_SHIFT__);
 }
 
 template <typename T>
