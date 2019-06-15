@@ -143,6 +143,31 @@ public:
         }
     }
 
+//    // Copy constructor
+//    repl_copy(const repl_copy& other)
+//    {
+//        for (long i = 0; i < NODELETS(); ++i) {
+//            new (get_nth(i)) T(other);
+//        }
+//    }
+
+    // Shallow copy constructor
+    repl_copy(const repl_copy& other, shallow_copy)
+    : T(other)
+    {
+        for (long i = 0; i < NODELETS(); ++i) {
+            new (&get_nth(i)) T(other, shallow_copy());
+        }
+    }
+
+    friend void swap(repl_copy& lhs, repl_copy& rhs)
+    {
+        using std::swap;
+        for (long i = 0; i < NODELETS(); ++i) {
+            swap(lhs.get_nth(i), rhs.get_nth(i));
+        }
+    }
+
     // Initializes all copies to the same value
     repl_copy&
     operator=(const T& rhs)
