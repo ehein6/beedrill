@@ -6,7 +6,7 @@
 class bitmap
 {
 private:
-    emu::repl_copy<emu::striped_array<unsigned long>> words_;
+    emu::striped_array<unsigned long> words_;
 
     // We stripe at the bit level, not the word level
     // For example, the bit at index 3 is stored in (words[3] & 1)

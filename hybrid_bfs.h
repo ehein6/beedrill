@@ -12,15 +12,15 @@ class hybrid_bfs {
 private:
     emu::repl<graph*> g_;
     // For each vertex, parent in the BFS tree.
-    emu::repl_copy<emu::striped_array<long>> parent_;
+    emu::striped_array<long> parent_;
     // Temporary copy of parent array
-    emu::repl_copy<emu::striped_array<long>> new_parent_;
+    emu::striped_array<long> new_parent_;
     // Used to store vertices to visit in the next frontier
-    emu::repl_copy<sliding_queue> queue_;
+    sliding_queue queue_;
     // Bitmap representation of the current frontier
-    emu::repl_copy<bitmap> frontier_;
+    bitmap frontier_;
     // Bitmap representation of the next frontier
-    emu::repl_copy<bitmap> next_frontier_;
+    bitmap next_frontier_;
     // Tracks the sum of the degrees of vertices in the frontier
     long scout_count_;
 
@@ -63,9 +63,6 @@ public:
     , next_frontier_(other.next_frontier_, tag)
     , scout_count_(other.scout_count_)
     {}
-
-
-
 
     // FIXME
 //    static void

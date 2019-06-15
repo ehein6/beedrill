@@ -13,9 +13,9 @@ struct dist_edge_list
     // Length of both arrays
     emu::repl<long> num_edges_;
     // Striped array of source vertex ID's
-    emu::repl_copy<emu::striped_array<long>> src_;
+    emu::striped_array<long> src_;
     // Striped array of dest vertex ID's
-    emu::repl_copy<emu::striped_array<long>> dst_;
+    emu::striped_array<long> dst_;
 
     // Constructor
     dist_edge_list(long num_vertices, long num_edges)
@@ -29,8 +29,8 @@ struct dist_edge_list
     dist_edge_list(const dist_edge_list& other, emu::shallow_copy)
     : num_vertices_(other.num_vertices_)
     , num_edges_(other.num_edges_)
-    , src_(other.src_)
-    , dst_(other.dst_)
+    , src_(other.src_, emu::shallow_copy())
+    , dst_(other.dst_, emu::shallow_copy())
     {}
 
     dist_edge_list(const dist_edge_list& other) = delete;
