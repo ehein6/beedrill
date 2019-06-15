@@ -33,6 +33,8 @@ struct dist_edge_list
     , dst_(other.dst_, emu::shallow_copy())
     {}
 
+    dist_edge_list(const dist_edge_list& other) = delete;
+
     // Creates distributed edge list from file
     static std::unique_ptr<emu::repl_copy<dist_edge_list>>
     load(const char* filename);

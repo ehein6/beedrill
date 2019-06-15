@@ -213,15 +213,22 @@ int main(int argc, char ** argv)
     // Initialize the algorithm
     LOG("Initializing BFS data structures...\n");
     hooks_set_attr_str("algorithm", args.algorithm);
-    hybrid_bfs::alg alg;
+
+
+    enum algorithm {
+        REMOTE_WRITES,
+        MIGRATING_THREADS,
+        REMOTE_WRITES_HYBRID,
+        BEAMER_HYBRID,
+    } alg;
     if        (!strcmp(args.algorithm, "remote_writes")) {
-        alg = hybrid_bfs::REMOTE_WRITES;
+        alg = REMOTE_WRITES;
     } else if (!strcmp(args.algorithm, "migrating_threads")) {
-        alg = hybrid_bfs::MIGRATING_THREADS;
+        alg = MIGRATING_THREADS;
     } else if (!strcmp(args.algorithm, "remote_writes_hybrid")) {
-        alg = hybrid_bfs::REMOTE_WRITES_HYBRID;
+        alg = REMOTE_WRITES_HYBRID;
     } else if (!strcmp(args.algorithm, "beamer_hybrid")) {
-        alg = hybrid_bfs::BEAMER_HYBRID;
+        alg = BEAMER_HYBRID;
     } else {
         LOG("Algorithm '%s' not implemented!\n", args.algorithm);
         exit(1);
@@ -249,7 +256,20 @@ int main(int argc, char ** argv)
         // Run the BFS
         hooks_set_attr_i64("source_vertex", source);
         hooks_region_begin("bfs");
-        bfs->run(alg, source, args.alpha, args.beta);
+        switch(alg) {
+            case (REMOTE_WRITES):
+                bfs->run_with_remote_writes(source);
+                break;
+            case (MIGRATING_THREADS):
+                bfs->run_with_migrating_threads(source);
+                break;
+            case (REMOTE_WRITES_HYBRID):
+                bfs->run_with_remote_writes_hybrid(source, args.alpha, args.beta);
+                break;
+            case (BEAMER_HYBRID):
+                bfs->run_beamer(source, args.alpha, args.beta);
+                break;
+        }
         double time_ms = hooks_region_end();
         if (args.check_results) {
             LOG("Checking results...\n");
