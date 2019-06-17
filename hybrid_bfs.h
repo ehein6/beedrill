@@ -5,7 +5,6 @@
 #include "graph.h"
 #include "sliding_queue.h"
 #include "bitmap.h"
-#include "ack_control.h"
 
 
 class hybrid_bfs {
@@ -39,30 +38,10 @@ public:
     void run_beamer(long source, long alpha, long beta);
 
     explicit
-    hybrid_bfs(graph & g)
-    : g_(&g)
-    , parent_(g.num_vertices())
-    , new_parent_(g.num_vertices())
-    , queue_(g.num_vertices())
-    , frontier_(g.num_vertices())
-    , next_frontier_(g.num_vertices())
-    , scout_count_(0)
-    {
-        // Force ack controller singleton to initialize itself
-        ack_controller::instance();
-        clear();
-    }
+    hybrid_bfs(graph & g);
 
     // Shallow copy constructor
-    hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag)
-    : g_(other.g_)
-    , parent_(other.parent_, tag)
-    , new_parent_(other.new_parent_, tag)
-    , queue_(other.queue_, tag)
-    , frontier_(other.frontier_, tag)
-    , next_frontier_(other.next_frontier_, tag)
-    , scout_count_(other.scout_count_)
-    {}
+    hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag);
 
     // FIXME
 //    static void

@@ -1,5 +1,29 @@
 #include "hybrid_bfs.h"
+#include "ack_control.h"
 
+hybrid_bfs::hybrid_bfs(graph & g)
+: g_(&g)
+, parent_(g.num_vertices())
+, new_parent_(g.num_vertices())
+, queue_(g.num_vertices())
+, frontier_(g.num_vertices())
+, next_frontier_(g.num_vertices())
+, scout_count_(0)
+{
+    // Force ack controller singleton to initialize itself
+    ack_control_init();
+}
+
+// Shallow copy constructor
+hybrid_bfs::hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag)
+: g_(other.g_)
+, parent_(other.parent_, tag)
+, new_parent_(other.new_parent_, tag)
+, queue_(other.queue_, tag)
+, frontier_(other.frontier_, tag)
+, next_frontier_(other.next_frontier_, tag)
+, scout_count_(other.scout_count_)
+{}
 
 void
 hybrid_bfs::queue_to_bitmap()
@@ -35,7 +59,7 @@ hybrid_bfs::bitmap_to_queue()
 void
 hybrid_bfs::top_down_step_with_remote_writes()
 {
-    ack_controller::instance().disable_acks();
+    ack_control_disable_acks();
     // For each vertex in the queue...
     queue_.forall_items([] (long v, graph& g, long * new_parent) {
         // for each neighbor of that vertex...
@@ -44,7 +68,7 @@ hybrid_bfs::top_down_step_with_remote_writes()
             new_parent[dst] = src; // Remote write
         }, new_parent);
     }, *g_, new_parent_.data());
-    ack_controller::instance().reenable_acks();
+    ack_control_reenable_acks();
 
     // Add to the queue all vertices that didn't have a parent before
 //        scout_count_ = 0;

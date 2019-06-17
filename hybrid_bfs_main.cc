@@ -177,7 +177,10 @@ int main(int argc, char ** argv)
         hooks_set_active_region(active_region);
     }
 
-    // Parse command-line argumetns
+    // Initialize RNG with deterministic seed
+    lcg rng(0);
+
+    // Parse command-line arguments
     bfs_args args = bfs_args::parse(argc, argv);
 
     // Load edge list from file
@@ -234,10 +237,7 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    auto bfs = emu::make_repl_copy<hybrid_bfs>(*g.get());
-
-    // Initialize RNG with deterministic seed
-    lcg rng(0);
+    auto bfs = emu::make_repl_copy<hybrid_bfs>(*g);
 
     long num_edges_traversed_all_trials = 0;
     double time_ms_all_trials = 0;
@@ -250,6 +250,9 @@ int main(int argc, char ** argv)
         } else {
             source = pick_random_vertex(*g, rng);
         }
+
+        // Clear out the bfs data structures
+        bfs->clear();
 
         LOG("Doing breadth-first search from vertex %li (sample %li of %li)\n",
             source, s + 1, args.num_trials);
@@ -289,10 +292,6 @@ int main(int argc, char ** argv)
             time_ms,
             (1e-6 * num_edges_traversed) / (time_ms / 1000)
         );
-        // Reset for next run
-        if (s+1 < args.num_trials) {
-            bfs->clear();
-        }
     }
 
     LOG("Mean performance over all trials: %3.2f MTEPS \n",
