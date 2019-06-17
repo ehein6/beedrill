@@ -21,13 +21,14 @@ private:
     // Bitmap representation of the next frontier
     bitmap next_frontier_;
     // Tracks the sum of the degrees of vertices in the frontier
-    long scout_count_;
+    // Declared here to avoid re-allocating before each step
+    emu::repl<long> scout_count_;
 
     void queue_to_bitmap();
     void bitmap_to_queue();
 
-    void top_down_step_with_remote_writes();
-    void top_down_step_with_migrating_threads();
+    long top_down_step_with_remote_writes();
+    long top_down_step_with_migrating_threads();
     long bottom_up_step();
 
 public:
