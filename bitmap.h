@@ -15,15 +15,15 @@ private:
     static unsigned
     word_offset(long n)
     {
-        // return n % NODELETS();
-        return n & (NODELETS() - 1);
+        // return n / (NODELETS() * 64);
+        return n >> PRIORITY((NODELETS()*64));
     }
 
     static unsigned
     bit_offset(long n)
     {
-        // return n / NODELETS();
-        return n >> PRIORITY(NODELETS());
+        // return (n / NODELETS()) % 64;
+        return (n >> PRIORITY(NODELETS())) & (63);
     }
 
 public:
@@ -44,10 +44,11 @@ public:
     void
     clear()
     {
-        // TODO parallelize with emu_local_for
-        for (long i = 0; i < words_.size(); ++i) {
-            words_[i] = 0;
-        }
+        striped_array_apply(words_.data(), words_.size(), 1024,
+            [](long i, unsigned long * words) {
+                words[i] = 0;
+            }, words_.data()
+        );
     }
 
     bool
@@ -78,26 +79,11 @@ public:
         REMOTE_OR((long*)&words_[word], 1UL << bit);
     }
 
-
     // Swap two bitmaps
-    //FIXME
     friend void
     swap(bitmap & lhs, bitmap & rhs)
     {
         using std::swap;
         swap(lhs.words_, rhs.words_);
     }
-
-//
-//    // Swap two bitmaps
-//    static inline void
-//    bitmap_replicated_swap(bitmap * a, bitmap * b)
-//    {
-//        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-//            bitmap * a_n = mw_get_nth(a, nlet);
-//            bitmap * b_n = mw_get_nth(b, nlet);
-//            bitmap_swap(a_n, b_n);
-//        }
-//    }
-
 };

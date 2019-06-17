@@ -23,9 +23,12 @@ private:
     // Tracks the sum of the degrees of vertices in the frontier
     // Declared here to avoid re-allocating before each step
     emu::repl<long> scout_count_;
+    emu::repl<long> awake_count_;
 
     void queue_to_bitmap();
     void bitmap_to_queue();
+    void dump_queue_stats();
+    void dump_bitmap_stats();
 
     long top_down_step_with_remote_writes();
     long top_down_step_with_migrating_threads();
@@ -61,7 +64,6 @@ public:
     bool check(long source);
     void print_tree();
     long count_num_traversed_edges();
-    void dump_queue_stats();
 };
 
 

@@ -158,16 +158,18 @@ hybrid_bfs::top_down_step_with_migrating_threads()
 long
 hybrid_bfs::bottom_up_step()
 {
-    long awake_count = 0;
     // TODO we can do the clear in parallel with other stuff
     next_frontier_.clear();
+    awake_count_ = 0;
 
-    queue_.forall_items(
-        [] (long v, hybrid_bfs& bfs, long& awake_count) {
-            long num_parents = 0;
-            // for each neighbor of that vertex...
-            bfs.g_->forall_out_neighbors(v, 512, [] (long child, long parent, hybrid_bfs& bfs, long& num_parents) {
-                // If the vertex is in the frontier...
+    // For all vertices without a parent...
+    g_->forall_vertices(512, [] (long v, hybrid_bfs& bfs, long& awake_count) {
+        if (bfs.parent_[v] >= 0) { return; }
+        // Look for neighbors who are in the frontier
+        long num_parents = 0;
+        bfs.g_->forall_out_neighbors(v, 512,
+            [](long child, long parent, hybrid_bfs &bfs, long& num_parents) {
+                // If the neighbor is in the frontier...
                 if (bfs.frontier_.get_bit(parent)) {
                     // Claim as a parent
                     bfs.parent_[child] = parent;
@@ -177,15 +179,15 @@ hybrid_bfs::bottom_up_step()
                     bfs.next_frontier_.set_bit(child);
                     // TODO No need to keep looking for a parent, quit here
                 }
-            }, bfs, num_parents);
-            // Track number of vertices woken up in this step
-            // If we run in parallel, we may find several parents, but
-            // we still only increment the counter once
-            if (num_parents > 0) { REMOTE_ADD(&awake_count, 1); }
-        }, *this, awake_count
-    );
+            }, bfs, num_parents
+        );
+        // Track number of vertices woken up in this step
+        // If we run in parallel, we may find several parents, but
+        // we still only increment the counter once per vertex added.
+        if (num_parents > 0) { REMOTE_ADD(&awake_count, 1); }
+    }, *this, awake_count_);
 
-    return awake_count;
+    return repl_reduce(awake_count_, std::plus<>());
 }
 
 
@@ -243,7 +245,6 @@ hybrid_bfs::run_beamer (long source, long alpha, long beta)
             queue_.slide_all_windows();
             // hooks_region_end();
         }
-        // dump_queue_stats();
     }
 }
 
@@ -478,11 +479,6 @@ hybrid_bfs::dump_queue_stats()
     printf("\n");
     fflush(stdout);
 
-    printf("Bitmap contents: ");
-    frontier_.dump();
-    printf("\n");
-    fflush(stdout);
-
     printf("Frontier size per nodelet: ");
     for (long n = 0; n < NODELETS(); ++n) {
         sliding_queue & local_queue = queue_.get_nth(n);
@@ -490,6 +486,15 @@ hybrid_bfs::dump_queue_stats()
     }
     printf("\n");
     fflush(stdout);
+}
+
+void
+hybrid_bfs::dump_bitmap_stats()
+{
+    printf("Frontier contents: ");
+    frontier_.dump();
+    printf("Next frontier contents: ");
+    next_frontier_.dump();
 }
 
 void
