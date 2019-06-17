@@ -49,6 +49,12 @@ struct dist_edge_list
     template<typename F, typename... Args>
     void forall_edges(long grain, F worker, Args&&... args)
     {
-        striped_array_apply(src_.data(), src_.size(), grain, worker, std::forward<Args>(args)...);
+        striped_array_apply(src_.data(), src_.size(), grain,
+            [](long i, dist_edge_list& dist_el, F worker, Args&&... args) {
+                long src = dist_el.src_[i];
+                long dst = dist_el.dst_[i];
+                worker(src, dst, std::forward<Args>(args)...);
+            }, *this, worker, std::forward<Args>(args)...
+        );
     }
 };

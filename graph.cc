@@ -22,9 +22,7 @@ bool
 graph::check(dist_edge_list &dist_el) {
     long ok = 1;
     dist_el.forall_edges(128,
-        [] (long i, graph& g, dist_edge_list &dist_el, long& ok) {
-            long src = dist_el.src_[i];
-            long dst = dist_el.dst_[i];
+        [] (long src, long dst, graph& g, long& ok) {
             if (!g.out_edge_exists(src, dst)) {
                 LOG("Missing out edge for %li->%li\n", src, dst);
                 ok = 0;
@@ -33,7 +31,7 @@ graph::check(dist_edge_list &dist_el) {
                 LOG("Missing out edge for %li->%li\n", src, dst);
                 ok = 0;
             }
-        }, *this, dist_el, ok
+        }, *this, ok
     );
     return (bool)ok;
 }
@@ -63,14 +61,12 @@ graph::from_edge_list(dist_edge_list & dist_el)
     );
     // Scan the edge list and do remote atomic adds into vertex_out_degree
     dist_el.forall_edges(edge_list_grain,
-        [] (long i, dist_edge_list & dist_el, graph & g) {
-            long src = dist_el.src_[i];
-            long dst = dist_el.dst_[i];
+        [] (long src, long dst, graph & g) {
             assert(src >= 0 && src < g.num_vertices());
             assert(dst >= 0 && dst < g.num_vertices());
             REMOTE_ADD(&g.vertex_out_degree_[src], 1);
             REMOTE_ADD(&g.vertex_out_degree_[dst], 1);
-        }, dist_el, *g
+        }, *g
     );
     hooks_region_end();
 
@@ -138,13 +134,11 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Filling edge blocks...\n");
     hooks_region_begin("fill_edge_blocks");
     dist_el.forall_edges(edge_list_grain,
-        [] (long i, dist_edge_list& dist_el, graph& g) {
-            long src = dist_el.src_[i];
-            long dst = dist_el.dst_[i];
+        [] (long src, long dst, graph& g) {
             // Insert both ways for undirected graph
             g.insert_edge(src, dst);
             g.insert_edge(dst, src);
-        }, dist_el, *g
+        }, *g
     );
     hooks_region_end();
 
