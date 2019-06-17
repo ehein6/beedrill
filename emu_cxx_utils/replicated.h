@@ -302,7 +302,7 @@ template<typename T, typename F>
 T repl_reduce(T& ref, F reduce)
 {
 //    assert_repl(ref);
-    T value;
+    T value{};
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
         value = reduce(value, ref.get_nth(nlet));
     }
