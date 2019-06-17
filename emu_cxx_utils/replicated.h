@@ -298,6 +298,17 @@ public:
     }
 };
 
+template<typename T, typename F>
+T repl_reduce(T& ref, F reduce)
+{
+//    assert_repl(ref);
+    T value;
+    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+        value = reduce(value, ref.get_nth(nlet));
+    }
+    return value;
+}
+
 /**
  * Returns a smart pointer to a replicated instance of T
  * @param args Arguments to forward to T's constructor

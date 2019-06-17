@@ -469,9 +469,10 @@ hybrid_bfs::count_num_traversed_edges()
             local_sum += g.out_degree(v);
         }
     }, *g_, *this, *sum);
+
     // FIXME reduce sum;
     // Divide by two, since each undirected edge is counted twice
-    return *sum / 2;
+    return emu::repl_reduce(*sum, std::plus<long>()) / 2;
 }
 
 void
