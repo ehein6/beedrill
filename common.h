@@ -119,7 +119,7 @@ striped_array_apply(T * array, long size, long grain, F worker, Args&&... args)
                 long first = i;
                 long last = first + stride; if (last > size) { last = size; }
                 cilk_spawn [](long begin, long end, F worker, Args&&... args) {
-                    for (long i = begin; i < end; ++i) {
+                    for (long i = begin; i < end; i += NODELETS()) {
                         worker(i, std::forward<Args>(args)...);
                     }
                 }(first, last, worker, std::forward<Args>(args)...);
