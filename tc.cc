@@ -4,48 +4,21 @@
 #include <cilk/cilk.h>
 #include <emu_c_utils/emu_c_utils.h>
 #include <stdio.h>
-#include "cursor.h"
-
-tc_data TC;
 
 void
-tc_init()
+tc::tc()
 {
-    tc_data_clear();
+    clear();
 }
 
 void
-tc_data_clear()
+tc::clear() :
+num_triangles_(0)
 {
-    TC.num_triangles = 0;
+    ;
 }
 
-void
-tc_deinit()
-{
-}
 
-// Returns an iterator pointing to the first element in the range [first, last)
-// that is not less than (i.e. greater or equal to) value, or last if no such element is found.
-// Adapted from C++ reference implementation at http://en.cppreference.com/w/cpp/algorithm/lower_bound
-long *
-lower_bound(long * first, long * last, long value)
-{
-    long * it;
-    ptrdiff_t count, step;
-    count = last - first;
-
-    while (count > 0) {
-        it = first;
-        step = count / 2;
-        it += step;
-        if (*it < value) {
-            first = ++it;
-            count -= step + 1;
-        } else count = step;
-    }
-    return first;
-}
 
 // Look for triangles with first side u->v, where v1 <= v < v2
 void
@@ -100,27 +73,27 @@ count_triangles(long u)
     }
 }
 
-void
-count_triangles_spawner(long * array, long begin, long end, va_list args)
-{
-    for (long u = begin; u < end; u += NODELETS()) {
-        count_triangles(u);
-    }
-}
 
 long
-tc_run()
+tc::run()
 {
-    emu_1d_array_apply(G.vertex_out_degree, G.num_vertices, 1,
-        count_triangles_spawner
+    g_->forall_vertices(128,
+        [](long u, tc& tc) {
+            tc.g_->forall_out_neighbors(u, 16,
+                [](long u, long v) {
+                    if (u <= v) { return; }
+
+                }
+        }, *this
     );
-    return TC.num_triangles;
+
+    return num_triangles;
 }
 
 
 // Do serial triangle count
 bool
-tc_check()
+tc::check()
 {
     // Do a serial triangle count
     long correct_num_triangles = 0;

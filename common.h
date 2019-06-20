@@ -16,23 +16,82 @@
 // Logging macro. Flush right away since Emu hardware usually doesn't
 #define LOG(...) fprintf(stdout, __VA_ARGS__); fflush(stdout);
 
-struct execution_policy {
-    long radix;
-    long grain;
-    enum schedule_type {
-        STATIC,
-        DYNAMIC
-    };
-    schedule_type schedule;
+namespace emu {
+namespace execution {
+
+struct policy_base {};
+
+// Execute loop iterations one at a time, in a single thread
+struct sequenced_policy : public policy_base {};
+
+// Base class for policies that take a grain size
+struct grain_policy : public policy_base
+{
+    long grain_;
+    explicit grain_policy(long grain) : grain_(grain) {}
 };
 
+// Spawn a thread for each grain-sized chunk
+struct parallel_policy : public grain_policy { using grain_policy::grain_policy; };
+// Create a thread for each execution slot, dividing iterations evenly
+// May create fewer threads depending on grain size
+struct parallel_limited_policy : public grain_policy { using grain_policy::grain_policy; };
+// Create N worker threads, which dynamically pull loop iterations off a work queue
+struct parallel_dynamic_policy : public grain_policy { using grain_policy::grain_policy; };
 
+// Max number of threads to spawn within a single thread
+const long spawn_radix = 8;
+// Target number of threads per nodelet
+const long threads_per_nodelet = 64;
+
+}; // end namespace execution
+}; // end namespace emu
+
+// Adjust grain size so we don't spawn too many threads
+inline long limit_grain(long grain, long n, long max_threads)
+{
+    long n_threads = n / grain;
+    if (n_threads > max_threads) {
+        grain = n / max_threads;
+    }
+    return grain;
+}
+
+// Sequential version
 template<typename F, typename... Args>
 void
-local_apply(long size, long grain, F worker, Args&&... args)
-{
-    // TODO Adjust grain to limit thread spawn
+local_apply(
+    emu::execution::sequenced_policy,
+    long size, F worker, Args&&... args
+){
+    for (long i = 0; i < size; ++i) {
+        worker(i, std::forward<Args>(args)...);
+    }
+}
 
+// Limited parallel version
+template<typename F, typename... Args>
+void
+local_apply(
+    emu::execution::parallel_limited_policy policy,
+    long size, F worker, Args&&... args
+){
+    long grain = limit_grain(policy.grain_, size, emu::execution::threads_per_nodelet);
+    // Forward to unlimited parallel version
+    local_apply(
+        emu::execution::parallel_policy(grain),
+        size, worker, std::forward<Args>(args)...
+    );
+}
+
+// Parallel version
+template<typename F, typename... Args>
+void
+local_apply(
+    emu::execution::parallel_policy policy,
+    long size, F worker, Args&&... args
+){
+    long grain = policy.grain_;
     auto apply_worker = [](long begin, long end, F worker, Args&&... args) {
         for (long i = begin; i < end; ++i) {
             worker(i, std::forward<Args>(args)...);
@@ -48,6 +107,8 @@ local_apply(long size, long grain, F worker, Args&&... args)
         }
     }
 }
+
+// TODO: Parallel with dynamic work queue
 
 //template<typename T, typename F, typename... Args>
 //void
@@ -92,22 +153,41 @@ local_apply(long size, long grain, F worker, Args&&... args)
 //    }
 //}
 
-//template<typename T, typename F, typename... Args>
-//void
-//striped_array_apply(T * array, long size, long grain, F worker, Args&&... args)
-//{
-//    for (long i = 0; i < size; ++i) {
-//        worker(i, std::forward<Args>(args)...);
-//    }
-//}
-
-
+// Sequential implementation
 template<typename T, typename F, typename... Args>
 void
-striped_array_apply(T * array, long size, long grain, F worker, Args&&... args)
-{
-    static_assert(sizeof(T) == 8, "Striped array only handles 8-byte types!");
+striped_array_apply(
+    emu::execution::sequenced_policy,
+    T * array, long size, F worker, Args&&... args
+){
+    for (long i = 0; i < size; ++i) {
+        worker(i, std::forward<Args>(args)...);
+    }
+}
 
+// Limited parallel version
+template<typename T, typename F, typename... Args>
+void
+striped_array_apply(
+    emu::execution::parallel_limited_policy policy,
+    T * array, long size, F worker, Args&&... args
+){
+    long grain = limit_grain(policy.grain_, size, NODELETS() * emu::execution::threads_per_nodelet);
+    striped_array_apply(
+        emu::execution::parallel_policy(grain),
+        array, size, worker, std::forward<Args>(args)...
+    );
+}
+
+// Parallel implementation
+template<typename T, typename F, typename... Args>
+void
+striped_array_apply(
+    emu::execution::parallel_policy policy,
+    T * array, long size, F worker, Args&&... args
+){
+    static_assert(sizeof(T) == 8, "Striped array only handles 8-byte types!");
+    long grain = policy.grain_;
     // Spawn a thread on each nodelet
     for (long i = 0; i < NODELETS() && i < size; ++i) {
         cilk_spawn_at(&array[i]) [](T * array, long size, long grain, F worker, Args&&... args) {

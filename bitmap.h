@@ -44,7 +44,9 @@ public:
     void
     clear()
     {
-        striped_array_apply(words_.data(), words_.size(), 1024,
+        striped_array_apply(
+            emu::execution::parallel_limited_policy(1024),
+            words_.data(), words_.size(),
             [](long i, unsigned long * words) {
                 words[i] = 0;
             }, words_.data()

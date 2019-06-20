@@ -3,6 +3,7 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/replicated.h>
+#include "common.h"
 
 // Distributed edge list that the graph will be created from.
 // First array stores source vertex ID, second array stores dest vertex ID
@@ -46,10 +47,10 @@ struct dist_edge_list
     // Print the edge list to stdout for debugging
     void dump() const;
 
-    template<typename F, typename... Args>
-    void forall_edges(long grain, F worker, Args&&... args)
+    template<typename P, typename F, typename... Args>
+    void forall_edges(P policy, F worker, Args&&... args)
     {
-        striped_array_apply(src_.data(), src_.size(), grain,
+        striped_array_apply(policy, src_.data(), src_.size(),
             [](long i, dist_edge_list& dist_el, F worker, Args&&... args) {
                 long src = dist_el.src_[i];
                 long dst = dist_el.dst_[i];

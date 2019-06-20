@@ -25,6 +25,8 @@ private:
     emu::repl<long> scout_count_;
     emu::repl<long> awake_count_;
 
+    using min_grain = emu::execution::parallel_limited_policy;
+
     void queue_to_bitmap();
     void bitmap_to_queue();
     void dump_queue_stats();
@@ -41,25 +43,9 @@ public:
     void run_with_remote_writes_hybrid(long source, long alpha, long beta);
     void run_beamer(long source, long alpha, long beta);
 
-    explicit
-    hybrid_bfs(graph & g);
-
-    // Shallow copy constructor
+    explicit hybrid_bfs(graph & g);
     hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag);
 
-    // FIXME
-//    static void
-//    scout_count_allreduce()
-//    {
-//        // Add up all replicated copies
-//        long sum = 0;
-//        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-//            long local_scout_count = *(long*)mw_get_nth(&HYBRID_BFS.scout_count, nlet);
-//            sum += local_scout_count;
-//        }
-//        // Set all copies to the sum
-//        mw_replicated_init(&HYBRID_BFS.scout_count, sum);
-//    }
     void clear();
     bool check(long source);
     void print_tree();

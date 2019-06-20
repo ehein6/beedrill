@@ -111,11 +111,25 @@ public:
         return false;
     }
 
-    //
-    template<typename F, typename... Args>
-    void forall_vertices(long grain, F worker, Args&&... args)
+    // Map a function to all vertices in parallel, using the specified policy
+    template<typename P, typename F, typename... Args>
+    void forall_vertices(P policy, F worker, Args&&... args)
     {
-        striped_array_apply(vertex_out_degree_.data(), num_vertices_, grain, worker, std::forward<Args>(args)...);
+        striped_array_apply(policy, vertex_out_degree_.data(), num_vertices_, worker, std::forward<Args>(args)...);
+    }
+
+    // Computes grain size to limit parallelism
+    template<typename F, typename... Args>
+    void forall_out_neighbors(
+        emu::execution::parallel_limited_policy policy,
+        long src, F worker, Args&&... args
+    ){
+        long degree = vertex_out_degree_[src];
+        long grain = limit_grain(policy.grain_, degree, emu::execution::threads_per_nodelet);
+        forall_out_neighbors(
+            emu::execution::parallel_policy(grain),
+            src, worker, std::forward<Args>(args)...
+        );
     }
 
     /**
@@ -131,8 +145,11 @@ public:
      * @param args Additional arguments that will be forwarded to the worker function
      */
     template<typename F, typename... Args>
-    void forall_out_neighbors(long src, long grain, F worker, Args&&... args)
-    {
+    void forall_out_neighbors(
+        emu::execution::parallel_policy policy,
+        long src, F worker, Args&&... args
+    ){
+        long grain = policy.grain_;
         // Applies the worker function to a range of edges
         auto apply_worker = [] (long src, long * edges_begin, long * edges_end, F worker, Args&&... args) {
             for (long * e = edges_begin; e < edges_end; ++e) {
@@ -159,16 +176,19 @@ public:
         }
     }
 
-//    template<typename F, typename... Args>
-//    void forall_out_neighbors(long src, long grain, F worker, Args&&... args)
-//    {
-//        // Find the edge list for this vertex
-//        long * edges_begin = vertex_out_neighbors_[src];
-//        long degree = vertex_out_degree_[src];
-//        long * edges_end = edges_begin + degree;
-//        for (long * e = edges_begin; e < edges_end; ++e) {
-//            worker(src, *e, std::forward<Args>(args)...);
-//        }
-//    }
+    // Serial implementation
+    template<typename F, typename... Args>
+    void forall_out_neighbors(
+        emu::execution::sequenced_policy,
+        long src, F worker, Args&&... args
+    ){
+        // Find the edge list for this vertex
+        long * edges_begin = vertex_out_neighbors_[src];
+        long degree = vertex_out_degree_[src];
+        long * edges_end = edges_begin + degree;
+        for (long * e = edges_begin; e < edges_end; ++e) {
+            worker(src, *e, std::forward<Args>(args)...);
+        }
+    }
 
 };

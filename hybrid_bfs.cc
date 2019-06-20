@@ -39,7 +39,9 @@ hybrid_bfs::bitmap_to_queue()
 {
     // For each vertex, test whether the bit in the bitmap is set
     // If so, add the index of the bit to the queue
-    striped_array_apply(parent_.data(), parent_.size(), 64,
+    striped_array_apply(
+        emu::execution::parallel_limited_policy(64),
+        parent_.data(), parent_.size(),
         [](long v, bitmap & b, sliding_queue & q) {
             if (b.get_bit(v)) {
                 q.push_back(v);
@@ -63,7 +65,7 @@ hybrid_bfs::top_down_step_with_remote_writes()
     // For each vertex in the queue...
     queue_.forall_items([] (long v, graph& g, long * new_parent) {
         // for each neighbor of that vertex...
-        g.forall_out_neighbors(v, 512, [](long src, long dst, long * new_parent) {
+        g.forall_out_neighbors(min_grain(512), v, [](long src, long dst, long * new_parent) {
             // write the vertex ID to the neighbor's new_parent entry.
             new_parent[dst] = src; // Remote write
         }, new_parent);
@@ -72,7 +74,7 @@ hybrid_bfs::top_down_step_with_remote_writes()
 
     // Add to the queue all vertices that didn't have a parent before
     scout_count_ = 0;
-    g_->forall_vertices(128, [](long v, hybrid_bfs & bfs) {
+    g_->forall_vertices(min_grain(128), [](long v, hybrid_bfs & bfs) {
         if (bfs.parent_[v] < 0 && bfs.new_parent_[v] >= 0) {
             // Update count with degree of new vertex
             REMOTE_ADD(&static_cast<long&>(bfs.scout_count_), -bfs.parent_[v]);
@@ -121,27 +123,23 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     // Spawn a thread on each nodelet to process the local queue
     // For each neighbor without a parent, add self as parent and append to queue
     scout_count_ = 0;
-    queue_.forall_items(
-        [] (long v, hybrid_bfs& bfs) {
-            // for each neighbor of that vertex...
-            bfs.g_->forall_out_neighbors(v, 512,
-                [](long src, long dst, hybrid_bfs& bfs) {
-                    // Look up the parent of the vertex we are visiting
-                    long * parent = &bfs.parent_[dst];
-                    long curr_val = *parent;
-                    // If we are the first to visit this vertex
-                    if (curr_val < 0) {
-                        // Set self as parent of this vertex
-                        if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
-                            // Add it to the queue
-                            bfs.queue_.push_back(dst);
-                            REMOTE_ADD(&static_cast<long&>(bfs.scout_count_), -curr_val);
-                        }
-                    }
-                }, bfs
-            );
-        }, *this
-    );
+    queue_.forall_items( [] (long v, hybrid_bfs& bfs) {
+        // for each neighbor of that vertex...
+        bfs.g_->forall_out_neighbors(min_grain(512), v, [](long src, long dst, hybrid_bfs& bfs) {
+            // Look up the parent of the vertex we are visiting
+            long * parent = &bfs.parent_[dst];
+            long curr_val = *parent;
+            // If we are the first to visit this vertex
+            if (curr_val < 0) {
+                // Set self as parent of this vertex
+                if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
+                    // Add it to the queue
+                    bfs.queue_.push_back(dst);
+                    REMOTE_ADD(&static_cast<long&>(bfs.scout_count_), -curr_val);
+                }
+            }
+        }, bfs);
+    }, *this);
     // Combine per-nodelet values of scout_count
     return emu::repl_reduce(scout_count_, std::plus<>());
 }
@@ -163,24 +161,22 @@ hybrid_bfs::bottom_up_step()
     awake_count_ = 0;
 
     // For all vertices without a parent...
-    g_->forall_vertices(512, [] (long v, hybrid_bfs& bfs, long& awake_count) {
+    g_->forall_vertices(min_grain(512), [] (long v, hybrid_bfs& bfs, long& awake_count) {
         if (bfs.parent_[v] >= 0) { return; }
         // Look for neighbors who are in the frontier
         long num_parents = 0;
-        bfs.g_->forall_out_neighbors(v, 512,
-            [](long child, long parent, hybrid_bfs &bfs, long& num_parents) {
-                // If the neighbor is in the frontier...
-                if (bfs.frontier_.get_bit(parent)) {
-                    // Claim as a parent
-                    bfs.parent_[child] = parent;
-                    // Increment number of parents found
-                    REMOTE_ADD(&num_parents, 1);
-                    // Put myself in the frontier
-                    bfs.next_frontier_.set_bit(child);
-                    // TODO No need to keep looking for a parent, quit here
-                }
-            }, bfs, num_parents
-        );
+        bfs.g_->forall_out_neighbors(min_grain(512), v, [](long child, long parent, hybrid_bfs &bfs, long& num_parents) {
+            // If the neighbor is in the frontier...
+            if (bfs.frontier_.get_bit(parent)) {
+                // Claim as a parent
+                bfs.parent_[child] = parent;
+                // Increment number of parents found
+                REMOTE_ADD(&num_parents, 1);
+                // Put myself in the frontier
+                bfs.next_frontier_.set_bit(child);
+                // TODO No need to keep looking for a parent, quit here
+            }
+        }, bfs, num_parents);
         // Track number of vertices woken up in this step
         // If we run in parallel, we may find several parents, but
         // we still only increment the counter once per vertex added.
@@ -460,7 +456,7 @@ long
 hybrid_bfs::count_num_traversed_edges()
 {
     auto sum = emu::make_repl<long>(0);
-    g_->forall_vertices(256, [] (long v, graph& g, hybrid_bfs& bfs, long& local_sum) {
+    g_->forall_vertices(min_grain(256), [] (long v, graph& g, hybrid_bfs& bfs, long& local_sum) {
         if (bfs.parent_[v] >= 0) {
             local_sum += g.out_degree(v);
         }
@@ -501,7 +497,8 @@ void
 hybrid_bfs::clear()
 {
     // Initialize the parent array with the -degree of the vertex
-    striped_array_apply(parent_.data(), parent_.size(), 128,
+    striped_array_apply(emu::execution::parallel_limited_policy(128),
+        parent_.data(), parent_.size(),
         [](long v, graph & g, hybrid_bfs & bfs) {
             long out_degree = g.out_degree(v);
             bfs.parent_[v] = out_degree != 0 ? -out_degree : -1;

@@ -1,16 +1,16 @@
+#include <emu_cxx_utils/replicated.h>
 #include "graph.h"
 
-typedef struct tc_data {
+class tc {
+private:
+    emu::repl<graph*> g_;
     // Number of triangles this vertex is a part of
-    long num_triangles;
-} tc_data;
+    emu::repl<long> num_triangles_;
+public:
 
-// Global replicated struct with BFS data pointers
-extern tc_data TC;
-
-void tc_init();
-long tc_run();
-void tc_data_clear();
-bool tc_check();
-void tc_deinit();
-
+    explicit tc(graph& g);
+    tc(const tc& other, emu::shallow_copy);
+    long run();
+    void clear();
+    bool check();
+};

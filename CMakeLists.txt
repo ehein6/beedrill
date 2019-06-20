@@ -39,9 +39,13 @@ add_executable(hybrid_bfs
     hybrid_bfs_main.cc
 )
 
-#add_executable(tc
-#    $<TARGET_OBJECTS:graph_loader>
-#    tc.h
-#    tc.c
-#    tc_main.c
-#)
+add_executable(tc
+    graph.h
+    graph.cc
+    dist_edge_list.h
+    dist_edge_list.cc
+    ack_control.h
+    tc.h
+    tc.cc
+    tc_main.cc
+)

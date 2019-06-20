@@ -30,6 +30,13 @@
 
 namespace emu {
 
+
+template<typename T>
+void assert_repl(T* ptr){
+#ifdef __le64__
+    assert(emu::pmanip::get_view(ptr) == 0);
+#endif
+}
 /**
  * Overrides default new to always allocate replicated storage for instances of this class.
  * repl_new is intended to be used as a parent class for distributed data structure types.
