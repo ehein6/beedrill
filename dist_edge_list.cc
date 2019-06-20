@@ -217,7 +217,7 @@ void
 scatter_edges(edge_list& el, dist_edge_list& dist_el)
 {
     // Scatter from local to distributed edge list
-    local_apply(emu::execution::parallel_limited_policy(1024), el.num_edges,
+    emu::local_apply(emu::execution::parallel_limited_policy(1024), el.num_edges,
         [] (long i, dist_edge_list &del, edge_list& el) {
             del.src_[i] = el.edges[i].src;
             del.dst_[i] = el.edges[i].dst;

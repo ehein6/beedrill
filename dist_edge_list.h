@@ -50,7 +50,7 @@ struct dist_edge_list
     template<typename P, typename F, typename... Args>
     void forall_edges(P policy, F worker, Args&&... args)
     {
-        striped_array_apply(policy, src_.data(), src_.size(),
+        emu::striped_array_apply(policy, src_.data(), src_.size(),
             [](long i, dist_edge_list& dist_el, F worker, Args&&... args) {
                 long src = dist_el.src_[i];
                 long dst = dist_el.dst_[i];

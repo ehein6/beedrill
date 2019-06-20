@@ -44,9 +44,6 @@ const long spawn_radix = 8;
 // Target number of threads per nodelet
 const long threads_per_nodelet = 64;
 
-}; // end namespace execution
-}; // end namespace emu
-
 // Adjust grain size so we don't spawn too many threads
 inline long limit_grain(long grain, long n, long max_threads)
 {
@@ -56,6 +53,8 @@ inline long limit_grain(long grain, long n, long max_threads)
     }
     return grain;
 }
+
+}; // end namespace execution
 
 // Sequential version
 template<typename F, typename... Args>
@@ -67,21 +66,6 @@ local_apply(
     for (long i = 0; i < size; ++i) {
         worker(i, std::forward<Args>(args)...);
     }
-}
-
-// Limited parallel version
-template<typename F, typename... Args>
-void
-local_apply(
-    emu::execution::parallel_limited_policy policy,
-    long size, F worker, Args&&... args
-){
-    long grain = limit_grain(policy.grain_, size, emu::execution::threads_per_nodelet);
-    // Forward to unlimited parallel version
-    local_apply(
-        emu::execution::parallel_policy(grain),
-        size, worker, std::forward<Args>(args)...
-    );
 }
 
 // Parallel version
@@ -106,6 +90,21 @@ local_apply(
             cilk_spawn apply_worker(begin, end, worker, std::forward<Args>(args)...);
         }
     }
+}
+
+// Limited parallel version
+template<typename F, typename... Args>
+void
+local_apply(
+    emu::execution::parallel_limited_policy policy,
+    long size, F worker, Args&&... args
+){
+    long grain = emu::execution::limit_grain(policy.grain_, size, emu::execution::threads_per_nodelet);
+    // Forward to unlimited parallel version
+    local_apply(
+        emu::execution::parallel_policy(grain),
+        size, worker, std::forward<Args>(args)...
+    );
 }
 
 // TODO: Parallel with dynamic work queue
@@ -165,20 +164,6 @@ striped_array_apply(
     }
 }
 
-// Limited parallel version
-template<typename T, typename F, typename... Args>
-void
-striped_array_apply(
-    emu::execution::parallel_limited_policy policy,
-    T * array, long size, F worker, Args&&... args
-){
-    long grain = limit_grain(policy.grain_, size, NODELETS() * emu::execution::threads_per_nodelet);
-    striped_array_apply(
-        emu::execution::parallel_policy(grain),
-        array, size, worker, std::forward<Args>(args)...
-    );
-}
-
 // Parallel implementation
 template<typename T, typename F, typename... Args>
 void
@@ -208,3 +193,18 @@ striped_array_apply(
     }
 }
 
+// Limited parallel version
+template<typename T, typename F, typename... Args>
+void
+striped_array_apply(
+    emu::execution::parallel_limited_policy policy,
+    T * array, long size, F worker, Args&&... args
+){
+    long grain = emu::execution::limit_grain(policy.grain_, size, NODELETS() * emu::execution::threads_per_nodelet);
+    striped_array_apply(
+        emu::execution::parallel_policy(grain),
+        array, size, worker, std::forward<Args>(args)...
+    );
+}
+
+}; // end namespace emu

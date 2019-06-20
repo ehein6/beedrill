@@ -39,7 +39,7 @@ hybrid_bfs::bitmap_to_queue()
 {
     // For each vertex, test whether the bit in the bitmap is set
     // If so, add the index of the bit to the queue
-    striped_array_apply(
+    emu::striped_array_apply(
         emu::execution::parallel_limited_policy(64),
         parent_.data(), parent_.size(),
         [](long v, bitmap & b, sliding_queue & q) {
@@ -497,7 +497,7 @@ void
 hybrid_bfs::clear()
 {
     // Initialize the parent array with the -degree of the vertex
-    striped_array_apply(emu::execution::parallel_limited_policy(128),
+    emu::striped_array_apply(emu::execution::parallel_limited_policy(128),
         parent_.data(), parent_.size(),
         [](long v, graph & g, hybrid_bfs & bfs) {
             long out_degree = g.out_degree(v);

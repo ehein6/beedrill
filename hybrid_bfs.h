@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <queue>
+#include "common.h"
 #include "graph.h"
 #include "sliding_queue.h"
 #include "bitmap.h"

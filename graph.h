@@ -125,7 +125,7 @@ public:
         long src, F worker, Args&&... args
     ){
         long degree = vertex_out_degree_[src];
-        long grain = limit_grain(policy.grain_, degree, emu::execution::threads_per_nodelet);
+        long grain = emu::execution::limit_grain(policy.grain_, degree, emu::execution::threads_per_nodelet);
         forall_out_neighbors(
             emu::execution::parallel_policy(grain),
             src, worker, std::forward<Args>(args)...

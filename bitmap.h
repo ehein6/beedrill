@@ -2,6 +2,7 @@
 
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/replicated.h>
+#include "common.h"
 
 class bitmap
 {
@@ -44,7 +45,7 @@ public:
     void
     clear()
     {
-        striped_array_apply(
+        emu::striped_array_apply(
             emu::execution::parallel_limited_policy(1024),
             words_.data(), words_.size(),
             [](long i, unsigned long * words) {
