@@ -30,13 +30,6 @@
 
 namespace emu {
 
-
-template<typename T>
-void assert_repl(T* ptr){
-#ifdef __le64__
-    assert(emu::pmanip::get_view(ptr) == 0);
-#endif
-}
 /**
  * Overrides default new to always allocate replicated storage for instances of this class.
  * repl_new is intended to be used as a parent class for distributed data structure types.
@@ -308,12 +301,28 @@ public:
 template<typename T, typename F>
 T repl_reduce(T& ref, F reduce)
 {
-//    assert_repl(ref);
     T value{};
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
         value = reduce(value, ref.get_nth(nlet));
     }
     return value;
+}
+
+template<typename T>
+void
+repl_swap(T& lhs, T& rhs)
+{
+    using std::swap;
+    if (pmanip::is_repl(&lhs) && pmanip::is_repl(&rhs)) {
+        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+            swap(
+                *pmanip::get_nth(&lhs, nlet),
+                *pmanip::get_nth(&rhs, nlet)
+            );
+        }
+    } else {
+        swap(lhs, rhs);
+    }
 }
 
 /**

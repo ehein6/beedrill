@@ -222,7 +222,7 @@ hybrid_bfs::run_beamer (long source, long alpha, long beta)
                 // hooks_set_attr_i64("awake_count", awake_count);
                 // hooks_region_begin("bottom_up_step");
                 awake_count = bottom_up_step();
-                swap(frontier_, next_frontier_);
+                emu::repl_swap(frontier_, next_frontier_);
                 // hooks_region_end();
             } while (awake_count >= old_awake_count ||
                      (awake_count > g_->num_vertices() / beta));
