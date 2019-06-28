@@ -16,8 +16,7 @@ private:
     static unsigned
     word_offset(long n)
     {
-        // return n / (NODELETS() * 64);
-        return n >> PRIORITY((NODELETS()*64));
+        return NODELETS() * (n / (64 * NODELETS())) + n % NODELETS();
     }
 
     static unsigned
@@ -27,13 +26,21 @@ private:
         return (n >> PRIORITY(NODELETS())) & (63);
     }
 
+    static long
+    div_round_up(long num, long den)
+    {
+        assert(den != 0);
+        return (num + den - 1) / den;
+    }
+
 public:
 
     // Constructor
     explicit
     bitmap(long n)
     // Need 1 word per 64 bits; divide and round up
-    : words_((n + 63) / 64)
+    // Need 1 word per nodelet minimum
+    : words_(NODELETS()*div_round_up(n, 64*NODELETS()))
     {}
 
     // Shallow copy constructor
@@ -59,7 +66,7 @@ public:
     {
         unsigned word = word_offset(pos);
         unsigned bit = bit_offset(pos);
-        return words_[word] & (1UL << bit);
+        return (words_[word] & (1UL << bit)) != 0UL;
     }
 
     void
