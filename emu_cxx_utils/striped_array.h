@@ -54,10 +54,10 @@ public:
         }
     }
 
-    typedef striped_array_iterator<T*> iterator;
-    typedef striped_array_iterator<const T*> const_iterator;
-    typedef striped_array_striped_iterator<T*> striped_iterator;
-    typedef striped_array_striped_iterator<const T*> const_striped_iterator;
+    typedef T* iterator;
+    typedef const T* const_iterator;
+    typedef T* striped_iterator;
+    typedef const T* const_striped_iterator;
 
     iterator begin ()               { return ptr; }
     iterator end ()                 { return ptr + n; }
@@ -121,50 +121,6 @@ public:
     }
 
     long size() const { return n; }
-
-private:
-    template<typename F>
-    static void
-    parallel_apply_worker_level2(long begin, long end, F worker)
-    {
-        // Use a stride to only touch the elements that are local to this nodelet
-        const long stride = NODELETS();
-        for (long i = begin; i < end; i += stride) {
-            worker(i);
-        }
-    }
-
-    template <typename F>
-    static void
-    parallel_apply_worker_level1(void * hint, long size, long grain, F worker)
-    {
-        (void)hint;
-        // Spawn threads to handle all the elements on this nodelet
-        // Start with an offset of NODE_ID() and a stride of NODELETS()
-        long stride = grain*NODELETS();
-        for (long i = NODE_ID(); i < size; i += stride) {
-            long first = i;
-            long last = first + stride; if (last > size) { last = size; }
-            cilk_spawn parallel_apply_worker_level2(first, last, worker);
-        }
-    }
-public:
-    /**
-     * Applies a function to each element of the array in parallel.
-     * @param worker Function to apply to each element. Argument is index of element.
-     * @param grain Minimum number of elements to assign to each thread.
-     */
-    template <typename F>
-    void
-    parallel_apply(F worker, long grain = 0) const
-    {
-        // TODO fix default grain size calculation
-        if (grain == 0) { grain = 256; }
-        // Spawn a thread at each nodelet
-        for (long nodelet_id = 0; nodelet_id < NODELETS() && nodelet_id < n; ++nodelet_id) {
-            cilk_spawn parallel_apply_worker_level1(&ptr[nodelet_id], n, grain, worker);
-        }
-    }
 };
 
 } // end namespace emu

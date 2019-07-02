@@ -3,6 +3,8 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/striped_array.h>
+#include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/striped_for_each.h>
 
 #include "common.h"
 #include "dist_edge_list.h"
@@ -115,20 +117,9 @@ public:
     template<typename P, typename F, typename... Args>
     void forall_vertices(P policy, F worker, Args&&... args)
     {
-        striped_array_apply(policy, vertex_out_degree_.data(), num_vertices_, worker, std::forward<Args>(args)...);
-    }
-
-    // Computes grain size to limit parallelism
-    template<typename F, typename... Args>
-    void forall_out_neighbors(
-        emu::execution::parallel_limited_policy policy,
-        long src, F worker, Args&&... args
-    ){
-        long degree = vertex_out_degree_[src];
-        long grain = emu::execution::limit_grain(policy.grain_, degree, emu::execution::threads_per_nodelet);
-        forall_out_neighbors(
-            emu::execution::parallel_policy(grain),
-            src, worker, std::forward<Args>(args)...
+        emu::parallel::striped_for_each_i(policy,
+            vertex_out_degree_.data(), 0L, vertex_out_degree_.size(),
+            worker, std::forward<Args>(args)...
         );
     }
 
@@ -144,51 +135,21 @@ public:
      * @param worker Worker function, will be called on each neighbor
      * @param args Additional arguments that will be forwarded to the worker function
      */
-    template<typename F, typename... Args>
+    template<typename Policy, typename Function, typename... Args>
     void forall_out_neighbors(
-        emu::execution::parallel_policy policy,
-        long src, F worker, Args&&... args
-    ){
-        long grain = policy.grain_;
-        // Applies the worker function to a range of edges
-        auto apply_worker = [] (long src, long * edges_begin, long * edges_end, F worker, Args&&... args) {
-            for (long * e = edges_begin; e < edges_end; ++e) {
-                worker(src, *e, std::forward<Args>(args)...);
-            }
-        };
-
-        // Find the edge list for this vertex
-        long * edges_begin = vertex_out_neighbors_[src];
-        long degree = vertex_out_degree_[src];
-        long * edges_end = edges_begin + degree;
-
-        // Decide whether we need to spawn
-        if (degree <= grain) {
-            // Low-degree local vertex, handle in this thread
-            apply_worker(src, edges_begin, edges_end, worker, std::forward<Args>(args)...);
-        } else {
-            // High-degree local vertex, spawn local threads
-            for (long * e1 = edges_begin; e1 < edges_end; e1 += grain) {
-                long * e2 = e1 + grain;
-                if (e2 > edges_end) { e2 = edges_end; }
-                cilk_spawn apply_worker(src, e1, e2, worker, std::forward<Args>(args)...);
-            }
-        }
-    }
-
-    // Serial implementation
-    template<typename F, typename... Args>
-    void forall_out_neighbors(
-        emu::execution::sequenced_policy,
-        long src, F worker, Args&&... args
+        Policy policy,
+        long src, Function worker, Args&&... args
     ){
         // Find the edge list for this vertex
         long * edges_begin = vertex_out_neighbors_[src];
         long degree = vertex_out_degree_[src];
         long * edges_end = edges_begin + degree;
-        for (long * e = edges_begin; e < edges_end; ++e) {
-            worker(src, *e, std::forward<Args>(args)...);
-        }
+        // Spawn threads over the range according to the specified policy
+        emu::parallel::for_each(
+            policy, edges_begin, edges_end,
+            [](long dst, long src, Function worker, Args&&... args) {
+                worker(src, dst, std::forward<Args>(args)...);
+            }, src, worker, std::forward<Args>(args)...
+        );
     }
-
 };

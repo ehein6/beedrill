@@ -3,6 +3,7 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/replicated.h>
+#include <emu_cxx_utils/striped_for_each.h>
 #include "common.h"
 
 // Distributed edge list that the graph will be created from.
@@ -50,7 +51,7 @@ struct dist_edge_list
     template<typename P, typename F, typename... Args>
     void forall_edges(P policy, F worker, Args&&... args)
     {
-        emu::striped_array_apply(policy, src_.data(), src_.size(),
+        emu::parallel::striped_for_each_i(policy, src_.data(), 0L, src_.size(),
             [](long i, dist_edge_list& dist_el, F worker, Args&&... args) {
                 long src = dist_el.src_[i];
                 long dst = dist_el.dst_[i];

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <emu_cxx_utils/replicated.h>
+#include <emu_cxx_utils/for_each.h>
 
 class sliding_queue
 {
@@ -141,42 +142,23 @@ public:
         }
     }
 
-//    template<typename F, typename... Args>
-//    void forall_items(F worker, Args&&... args)
-//    {
-//        for (long * iter = begin(); iter < end(); ++iter) {
-//            worker(*iter, std::forward<Args>(args)...);
-//        }
-//    }
-
     template<typename F, typename... Args>
     void forall_items(F worker, Args&&... args)
     {
         // First, spawn a thread on each nodelet to handle the local queue
-        for (long n = 0; n < NODELETS(); ++n) {
-            sliding_queue& local_queue = get_nth(n);
-            cilk_spawn_at(&local_queue) [](sliding_queue & queue, F worker, Args&&... args) {
-                // Decide how many local workers to create
-                long num_workers = 64;
-                if (queue.size() < num_workers) {
-                    num_workers = queue.size();
-                }
-                // Spawn workers
-                long queue_pos = queue.start_;
-                for (long t = 0; t < num_workers; ++t) {
-                    cilk_spawn [](sliding_queue & queue, long & queue_pos, F worker, Args&&... args) {
-                        // Keep grabbing vertices off the local queue
-                        const long queue_end = queue.end_;
-                        const long * queue_buffer = queue.buffer_;
-                        long v = ATOMIC_ADDMS(&queue_pos, 1);
-                        for (; v < queue_end; v = ATOMIC_ADDMS(&queue_pos, 1)) {
-                            // Call the worker function on each queue item
-                            long src = queue_buffer[v];
-                            worker(src, std::forward<Args>(args)...);
-                        }
-                    }(queue, queue_pos, worker, std::forward<Args>(args)...);
-                }
-            } (local_queue, worker, std::forward<Args>(args)...);
-        }
+        emu::repl_for_each(emu::execution::parallel_policy(1), *this,
+            [](sliding_queue& queue, F worker, Args&&... args){
+                // Spawn threads to dynamically pull items off of this queue
+                emu::parallel::for_each_i(
+                    emu::execution::parallel_dynamic_policy(),
+                    queue.start_, queue.end_,
+                    [](long i, sliding_queue& queue, F worker, Args&&... args){
+                        // Pass the next item in the queue to the worker
+                        long item = queue.buffer_[i];
+                        worker(item, std::forward<Args>(args)...);
+                    }, queue, worker, std::forward<Args>(args)...
+                );
+            }, worker, std::forward<Args>(args)...
+        );
     }
 };

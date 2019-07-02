@@ -1,6 +1,9 @@
 #include "hybrid_bfs.h"
 #include "ack_control.h"
 
+#include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/striped_for_each.h>
+
 hybrid_bfs::hybrid_bfs(graph & g)
 : g_(&g)
 , parent_(g.num_vertices())
@@ -39,9 +42,9 @@ hybrid_bfs::bitmap_to_queue()
 {
     // For each vertex, test whether the bit in the bitmap is set
     // If so, add the index of the bit to the queue
-    emu::striped_array_apply(
+    emu::parallel::striped_for_each_i(
         emu::execution::parallel_limited_policy(64),
-        parent_.data(), parent_.size(),
+        parent_.data(), 0L, parent_.size(),
         [](long v, bitmap & b, sliding_queue & q) {
             if (b.get_bit(v)) {
                 q.push_back(v);
@@ -497,8 +500,9 @@ void
 hybrid_bfs::clear()
 {
     // Initialize the parent array with the -degree of the vertex
-    emu::striped_array_apply(emu::execution::parallel_limited_policy(128),
-        parent_.data(), parent_.size(),
+    emu::parallel::striped_for_each_i(
+        emu::execution::parallel_limited_policy(128),
+        parent_.data(), 0L, parent_.size(),
         [](long v, graph & g, hybrid_bfs & bfs) {
             long out_degree = g.out_degree(v);
             bfs.parent_[v] = out_degree != 0 ? -out_degree : -1;

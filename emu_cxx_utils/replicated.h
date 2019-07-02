@@ -5,7 +5,9 @@
 #include <memory>
 #include <cstring>
 #include <cassert>
+#include <cilk/cilk.h>
 #include "pointer_manipulation.h"
+#include "execution_policy.h"
 
 /*
  * This header provides support for storing C++ objects in replicated memory.
@@ -29,6 +31,38 @@
  */
 
 namespace emu {
+
+template<typename T, typename Function, typename... Args>
+void repl_for_each(
+    execution::sequenced_policy,
+    T & repl_ref, Function worker, Args&&... args
+){
+    if (emu::pmanip::is_repl(&repl_ref)) {
+        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+            T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
+            worker(remote_ref, std::forward<Args>(args)...);
+        }
+    } else {
+        worker(repl_ref, std::forward<Args>(args)...);
+    }
+}
+
+template<typename T, typename Function, typename... Args>
+void repl_for_each(
+    execution::parallel_policy,
+    T & repl_ref, Function worker, Args&&... args
+){
+    if (emu::pmanip::is_repl(&repl_ref)) {
+        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+            T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
+            cilk_spawn_at(&remote_ref) worker(
+                repl_ref, std::forward<Args>(args)...
+            );
+        }
+    } else {
+        worker(repl_ref, std::forward<Args>(args)...);
+    }
+}
 
 /**
  * Overrides default new to always allocate replicated storage for instances of this class.

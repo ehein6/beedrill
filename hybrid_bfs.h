@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <queue>
+#include <emu_cxx_utils/execution_policy.h>
 #include "common.h"
 #include "graph.h"
 #include "sliding_queue.h"

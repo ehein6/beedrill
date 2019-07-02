@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <string.h>
+#include <emu_cxx_utils/for_each.h>
 
 // TODO add these to emu_c_utils
 //#ifndef __le64__
@@ -217,7 +218,8 @@ void
 scatter_edges(edge_list& el, dist_edge_list& dist_el)
 {
     // Scatter from local to distributed edge list
-    emu::local_apply(emu::execution::parallel_limited_policy(1024), el.num_edges,
+    emu::parallel::for_each_i(emu::execution::parallel_limited_policy(1024),
+        0L, el.num_edges,
         [] (long i, dist_edge_list &del, edge_list& el) {
             del.src_[i] = el.edges[i].src;
             del.dst_[i] = el.edges[i].dst;

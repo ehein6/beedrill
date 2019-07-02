@@ -52,12 +52,12 @@ public:
     void
     clear()
     {
-        emu::striped_array_apply(
+        emu::parallel::striped_for_each(
             emu::execution::parallel_limited_policy(1024),
-            words_.data(), words_.size(),
-            [](long i, unsigned long * words) {
-                words[i] = 0;
-            }, words_.data()
+            words_.begin(), words_.end(),
+            [](long& w) {
+                w = 0;
+            }
         );
     }
 
