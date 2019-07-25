@@ -23,4 +23,4 @@ install(FILES ${headers} DESTINATION include/emu_cxx_utils)
 
 enable_testing()
 
-add_subdirectory(examples)
+add_subdirectory(tests)
