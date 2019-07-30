@@ -14,7 +14,7 @@ extern "C" {
 #include <cstdio>
 #include <cassert>
 #include <cilk/cilk.h>
-
+#include "replicated.h"
 // Logging macro. Flush right away since Emu hardware usually doesn't
 #define LOG(...) fprintf(stdout, __VA_ARGS__); fflush(stdout);
 

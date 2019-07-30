@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cassert>
 #include <cilk/cilk.h>
+#include "memoryweb_x86.h"
 #include "pointer_manipulation.h"
 #include "execution_policy.h"
 

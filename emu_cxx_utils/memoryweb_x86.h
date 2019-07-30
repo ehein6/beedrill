@@ -1,6 +1,6 @@
 /*! \file memoryweb_x86.h
  \date March 15, 2018
- \author Eric Hein 
+ \author Eric Hein
  \brief Implements the Emu intrinsics and memoryweb library functions for x86 architectures.
  Include this file instead of <memoryweb.h> to compile and test Emu programs natively
 
@@ -16,6 +16,10 @@ extern "C" {
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+/* Cilk extensions */
+#define cilk_migrate_hint(X) (void)(X)
+#define cilk_spawn_at(X) (void)(X); cilk_spawn
 
 /* Data Allocation and Distribution */
 
@@ -61,7 +65,7 @@ mw_localfree(void * localpointer)
 }
 
 static inline void *
-mw_arrayindex(long * array2d, unsigned long i, unsigned long numelements, size_t eltsize)
+mw_arrayindex(void * array2d, unsigned long i, unsigned long numelements, size_t eltsize)
 {
     unsigned char ** array = (unsigned char**) array2d;
     return &array[i][0];
@@ -111,6 +115,7 @@ mw_mallocstripe(size_t sz)
     return malloc(sz);
 }
 
+
 /* Architecture Specific Operations */
 
 static inline long
@@ -123,20 +128,6 @@ ATOMIC_SWAP(volatile long * ptr, long newval) {
     long oldval;
     do { oldval = *ptr; } while (oldval != __sync_val_compare_and_swap(ptr, oldval, newval));
     return oldval;
-}
-
-// No suffix variants: do the op without modifying memory
-static inline long ATOMIC_ADD(volatile long * ptr, long val) { return *ptr + val; }
-static inline long ATOMIC_AND(volatile long * ptr, long val) { return *ptr & val; }
-static inline long ATOMIC_OR (volatile long * ptr, long val) { return *ptr | val; }
-static inline long ATOMIC_XOR(volatile long * ptr, long val) { return *ptr ^ val; }
-static inline long ATOMIC_MAX(volatile long * ptr, long val) {
-    long x = *ptr;
-    return val > x ? val : x;
-}
-static inline long ATOMIC_MIN(volatile long * ptr, long val) {
-    long x = *ptr;
-    return val < x ? val : x;
 }
 
 // M-suffix variants: write result to memory and return result
@@ -268,7 +259,6 @@ static inline long CLOCK()
 }
 
 #define MAXDEPTH() (255L)
-#include <cilk/cilk_api.h>
 #define THREAD_ID() (__cilkrts_get_worker_number())
 #define NODE_ID() (0L)
 #define NODELETS() (1L)

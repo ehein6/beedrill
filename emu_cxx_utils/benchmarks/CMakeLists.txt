@@ -1,0 +1,3 @@
+link_libraries(emu_cxx_utils)
+add_executable(local_stream_cxx local_stream_cxx.cc)
+add_executable(global_stream_cxx global_stream_cxx.cc)

@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5.1)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 project(emu_cxx_utils CXX)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
 set(headers
     striped_iterator.h
@@ -24,3 +24,4 @@ install(FILES ${headers} DESTINATION include/emu_cxx_utils)
 enable_testing()
 
 add_subdirectory(tests)
+add_subdirectory(benchmarks)
