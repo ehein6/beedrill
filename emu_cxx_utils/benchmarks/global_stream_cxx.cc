@@ -5,21 +5,29 @@
 
 #include <common.h>
 
+using namespace emu::execution;
 
 struct stream {
     emu::striped_array<long> _a, _b, _c;
-    explicit stream(long n) : _a(n), _b(n), _c(n) {};
+    explicit stream(long n) : _a(n), _b(n), _c(n) {}
+
+    stream(const stream& other, emu::shallow_copy shallow)
+    : _a(other._a, shallow)
+    , _b(other._b, shallow)
+    , _c(other._c, shallow)
+    {
+    }
 
     void init()
     {
-        emu::parallel::fill(_a.begin(), _a.end(), 1);
-        emu::parallel::fill(_b.begin(), _b.end(), 2);
-        emu::parallel::fill(_c.begin(), _c.end(), -1);
+        emu::parallel::fill(_a.begin(), _a.end(), 1L);
+        emu::parallel::fill(_b.begin(), _b.end(), 2L);
+        emu::parallel::fill(_c.begin(), _c.end(), -1L);
     }
 
     void run()
     {
-        emu::parallel::transform(_a.begin(), _a.end(), _b.begin(), _c.begin(),
+        emu::parallel::transform(par_limit, _a.begin(), _a.end(), _b.begin(), _c.begin(),
             [](long a, long b) { return a + b; }
         );
     }

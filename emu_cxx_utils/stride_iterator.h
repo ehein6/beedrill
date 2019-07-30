@@ -9,10 +9,8 @@ extern "C" {
 }
 #include <algorithm>
 #include <iterator>
-#include "iterator_layout.h"
 
 namespace emu {
-
 
 /**
  * Iterator for striped_array
@@ -30,19 +28,17 @@ private:
 public:
 
     // Create iterator from pointer
-    striped_array_iterator_base(I it) : it(it) {}
+    stride_iterator(I it) : it(it) {}
 
     // Convert between striped/sequential mode
     template<bool U>
     stride_iterator(const stride_iterator<I, U> &other) : it(other.it) {}
 
-    // striped/sequential versions are friends
-    friend class striped_array_iterator_base<I, !use_nodelet_stride>;
-    // Typedef to allow converting between striped/sequential versions
-    typedef striped_array_iterator_base<I, true> as_striped_iterator;
-    typedef striped_array_iterator_base<I, false> as_sequential_iterator;
+    // TODO striped/sequential versions are friends
+
+    // TODO Typedef to allow converting between striped/sequential versions
     // Standard iterator typedefs for interop with C++ algorithms
-    typedef striped_array_iterator_base self_type;
+    typedef stride_iterator self_type;
     typedef typename std::iterator_traits<I>::iterator_category iterator_category;
     typedef typename std::iterator_traits<I>::value_type value_type;
     typedef typename std::iterator_traits<I>::difference_type difference_type;
@@ -116,27 +112,8 @@ public:
     friend difference_type
     operator- (const self_type& lhs, const self_type& rhs)
     {
-        const long stride = use_nodelet_stride ? NODELETS() : 1;
         return (lhs.it - rhs.it) / stride;
     }
 };
 
-template<typename I>
-using striped_array_iterator = striped_array_iterator_base<I, false>;
-template<typename I>
-using striped_array_striped_iterator = striped_array_iterator_base<I, true>;
-
-// Register type trait so that algorithms are aware of the striped layout
-template<typename T>
-struct iterator_layout<striped_array_iterator<T>>
-{
-    typedef striped_layout_tag value;
-};
-
-template<typename T>
-struct iterator_layout<striped_array_striped_iterator<T>>
-{
-    typedef sequential_layout_tag value;
-};
-
-}; // end namespace emu
+} // end namespace emu
