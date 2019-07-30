@@ -87,7 +87,7 @@ void transform(
         auto mid3 = std::next(first3, size/2);
         // Spawn a thread to deal with the upper half
         cilk_migrate_hint(&*first1);
-        cilk_spawn transform_dispatch(
+        cilk_spawn transform(
             policy,
             first1, mid1,
             first2,
@@ -113,36 +113,6 @@ void transform(
         // Serial execution
         transform(execution::seq, first1, last1, first2, first3, binary_op);
     }
-
-
-    for (;;) {
-        /* How many elements in my range? */
-        long count = std::distance(first1, last1);
-
-        /* Break out when my range is smaller than the grain size */
-        if (count <= grain) break;
-
-        /* Divide the range in half */
-        /* Invariant: count >= 2 */
-        auto mid1 = std::next(first1, count/2);
-        auto mid2 = std::next(first2, count/2);
-        auto mid3 = std::next(first3, count/2);
-
-        /* Spawn a thread to deal with the lower half */
-        cilk_migrate_hint(&*first1);
-        cilk_spawn transform_dispatch(
-            first1, mid1,
-            first2,
-            first3,
-            binary_op
-        );
-
-        /* Shrink range to upper half and repeat */
-        first1 = mid1;
-        first2 = mid2;
-        first3 = mid3;
-    }
-    std::transform(first1, last1, first2, first3, binary_op);
 }
 
 
@@ -159,18 +129,26 @@ void transform(
 //    return d_first + std::distance(first1, last1);
 //}
 
-// Binary op version
-template< class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
-ForwardIt3 transform(
-    ExecutionPolicy&& policy,
+// Limited parallel version
+template< class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
+void transform(
+    emu::execution::parallel_limited_policy policy,
     ForwardIt1 first1, ForwardIt1 last1,
     ForwardIt2 first2,
-    ForwardIt3 d_first, BinaryOperation binary_op)
+    ForwardIt3 first3,
+    BinaryOperation binary_op)
 {
-    // TODO dispatch based on iterator layout
-    transform(policy, first1, last1, first2, d_first, binary_op);
-    return d_first + std::distance(first1, last1);
+    // Recalculate grain size to limit thread count
+    auto grain = emu::execution::limit_grain(
+        policy.grain_,
+        last1-first1,
+        emu::execution::threads_per_nodelet
+    );
+    // Forward to unlimited parallel version
+    emu::parallel::transform(
+        emu::execution::parallel_policy(grain),
+        first1, last1, first2, first3, binary_op
+    );
 }
-
 
 } // end namespace emu::parallel
