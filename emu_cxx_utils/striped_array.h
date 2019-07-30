@@ -14,7 +14,7 @@ extern "C" {
 #include <cstdio>
 #include <cilk/cilk.h>
 
-#include "striped_iterator.h"
+#include "stride_iterator.h"
 #include "replicated.h"
 
 namespace emu {

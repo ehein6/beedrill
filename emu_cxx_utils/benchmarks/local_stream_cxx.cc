@@ -21,7 +21,7 @@ struct stream {
 
     void run()
     {
-        emu::parallel::transform(_a.begin(), _a.end(), _b.begin(), _c.begin(),
+        emu::parallel::transform(par_limit, _a.begin(), _a.end(), _b.begin(), _c.begin(),
             [](long a, long b) { return a + b; }
         );
     }

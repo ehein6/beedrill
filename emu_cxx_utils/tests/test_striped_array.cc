@@ -3,7 +3,7 @@
 
 #include <algorithm>
 #include <numeric>
-#include <emu_cxx_utils/striped_iterator.h>
+#include <emu_cxx_utils/stride_iterator.h>
 #include <emu_cxx_utils/transform.h>
 
 #include <gtest/gtest.h>

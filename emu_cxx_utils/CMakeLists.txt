@@ -5,7 +5,7 @@ project(emu_cxx_utils CXX)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
 set(headers
-    striped_iterator.h
+    stride_iterator.h
     striped_array.h
     ragged_array.h
     make_unique.h

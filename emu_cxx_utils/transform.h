@@ -2,90 +2,119 @@
 #include "common.h"
 #include <algorithm>
 #include <iterator>
-#include "iterator_layout.h"
+#include "execution_policy.h"
 
-namespace emu {
-namespace parallel {
+namespace emu::parallel {
 
-// Parallel std::transform (unary op version) for sequential layouts
-template< class ForwardIt1, class ForwardIt2, class UnaryOperation >
-void transform_dispatch(
-    ForwardIt1 first1, ForwardIt1 last1,
-    ForwardIt2 first2,
-    UnaryOperation unary_op,
-    sequential_layout_tag)
-{
-    // TODO choose grain size
-    const long grain = 4;
-    for (;;) {
-        /* How many elements in my range? */
-        long count = std::distance(first1, last1);
-
-        /* Break out when my range is smaller than the grain size */
-        if (count <= grain) break;
-
-        /* Divide the range in half */
-        /* Invariant: count >= 2 */
-        auto mid1 = std::next(first1, count/2);
-        auto mid2 = std::next(first2, count/2);
-
-//        printf("T%li: Spawning for range [%li, %li]\n", THREAD_ID(), *first1, *(mid1-1));
-        /* Spawn a thread to deal with the lower half */
-        // Removing this spawn fixes it as well...
-        cilk_migrate_hint(&*first1);
-        cilk_spawn transform_dispatch(
-            first1, mid1,
-            first2,
-            unary_op,
-            sequential_layout_tag()
-        );
-
-        /* Shrink range to upper half and repeat */
-        first1 = mid1;
-        first2 = mid2;
-        // This print statement forces it to work
-//        printf("T%li: Recursing for range [%li, %li]\n", THREAD_ID(), *first1, *(last1-1));
-    }
-//    printf("T%li: Transforming range [%li, %li]\n", THREAD_ID(), *first1, *(last1-1));
-    std::transform(first1, last1, first2, unary_op);
-}
-
-// Parallel std::transform (unary op version) for striped layouts
-template< class ForwardIt1, class ForwardIt2, class UnaryOperation >
-void transform_dispatch(
-    ForwardIt1 first1, ForwardIt1 last1,
-    ForwardIt2 first2,
-    UnaryOperation unary_op,
-    striped_layout_tag)
-{
-    long size = std::distance(first1, last1);
-    // Spawn a thread on each nodelet
-    for (long i = 0; i < NODELETS() && i < size; ++i) {
-        // Convert to striped iterators and forward to sequential version
-        typename ForwardIt1::as_striped_iterator first1_s = std::next(first1, i);
-        typename ForwardIt1::as_striped_iterator last1_s = std::next(last1, i);
-        typename ForwardIt2::as_striped_iterator first2_s = std::next(first2, i);
-        cilk_migrate_hint(&*first1_s);
-        cilk_spawn transform_dispatch(
-            first1_s, last1_s,
-            first2_s,
-            unary_op,
-            sequential_layout_tag()
-        );
-    }
-}
-
-// Parallel std::transform (binary op version) for sequential layouts
 template< class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
-void transform_dispatch(
+ForwardIt3
+transform(
+    emu::execution::sequenced_policy policy,
     ForwardIt1 first1, ForwardIt1 last1,
     ForwardIt2 first2,
     ForwardIt3 first3,
-    BinaryOperation binary_op,
-    sequential_layout_tag)
+    BinaryOperation binary_op)
 {
-    // TODO choose grain size
-    const long grain = 4;
+    return std::transform(first1, last1, first2, first3, binary_op);
+}
+
+//
+//// Parallel std::transform (unary op version) for sequential layouts
+//template< class ForwardIt1, class ForwardIt2, class UnaryOperation >
+//void transform_dispatch(
+//    ForwardIt1 first1, ForwardIt1 last1,
+//    ForwardIt2 first2,
+//    UnaryOperation unary_op,)
+//{
+//    // TODO choose grain size
+//    const long grain = 4;
+//    for (;;) {
+//        /* How many elements in my range? */
+//        long count = std::distance(first1, last1);
+//
+//        /* Break out when my range is smaller than the grain size */
+//        if (count <= grain) break;
+//
+//        /* Divide the range in half */
+//        /* Invariant: count >= 2 */
+//        auto mid1 = std::next(first1, count/2);
+//        auto mid2 = std::next(first2, count/2);
+//
+////        printf("T%li: Spawning for range [%li, %li]\n", THREAD_ID(), *first1, *(mid1-1));
+//        /* Spawn a thread to deal with the lower half */
+//        // Removing this spawn fixes it as well...
+//        cilk_migrate_hint(&*first1);
+//        cilk_spawn transform_dispatch(
+//            first1, mid1,
+//            first2,
+//            unary_op,
+//            sequential_layout_tag()
+//        );
+//
+//        /* Shrink range to upper half and repeat */
+//        first1 = mid1;
+//        first2 = mid2;
+//        // This print statement forces it to work
+////        printf("T%li: Recursing for range [%li, %li]\n", THREAD_ID(), *first1, *(last1-1));
+//    }
+////    printf("T%li: Transforming range [%li, %li]\n", THREAD_ID(), *first1, *(last1-1));
+//    std::transform(first1, last1, first2, unary_op);
+//}
+
+// Parallel std::transform (binary op version) for sequential layouts
+template< class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
+void transform(
+    emu::execution::parallel_policy policy,
+    ForwardIt1 first1, ForwardIt1 last1,
+    ForwardIt2 first2,
+    ForwardIt3 first3,
+    BinaryOperation binary_op)
+{
+    auto grain = policy.grain_;
+    auto radix = emu::execution::spawn_radix;
+    typename std::iterator_traits<ForwardIt1>::difference_type size;
+
+    // Recursive spawn
+    for (;;) {
+        // Keep looping until there are few enough iterations to spawn serially
+        size = std::distance(first1, last1);
+        if (size/grain <= radix) break;
+        // Cut the range in half
+        /* Divide the range in half */
+        /* Invariant: count >= 2 */
+        auto mid1 = std::next(first1, size/2);
+        auto mid2 = std::next(first2, size/2);
+        auto mid3 = std::next(first3, size/2);
+        // Spawn a thread to deal with the upper half
+        cilk_migrate_hint(&*first1);
+        cilk_spawn transform_dispatch(
+            policy,
+            first1, mid1,
+            first2,
+            first3,
+            binary_op
+        );
+        // Shrink range to lower half and repeat
+        /* Shrink range to upper half and repeat */
+        first1 = mid1;
+        first2 = mid2;
+        first3 = mid3;
+    }
+    if (size > grain) {
+        // Serial spawn
+        for (; first1 < last1; first1 += grain, first2 += grain, first3 += grain) {
+            ForwardIt1 last = first1 + grain <= last1 ? first1 + grain : last1;
+            cilk_spawn transform(
+                execution::seq,
+                first1, last, first2, first3, binary_op
+            );
+        }
+    } else {
+        // Serial execution
+        transform(execution::seq, first1, last1, first2, first3, binary_op);
+    }
+
+
     for (;;) {
         /* How many elements in my range? */
         long count = std::distance(first1, last1);
@@ -105,8 +134,7 @@ void transform_dispatch(
             first1, mid1,
             first2,
             first3,
-            binary_op,
-            sequential_layout_tag()
+            binary_op
         );
 
         /* Shrink range to upper half and repeat */
@@ -117,61 +145,32 @@ void transform_dispatch(
     std::transform(first1, last1, first2, first3, binary_op);
 }
 
-// Parallel std::transform (binary op version) for striped layouts
-template< class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
-void transform_dispatch(
-    ForwardIt1 first1, ForwardIt1 last1,
-    ForwardIt2 first2,
-    ForwardIt3 first3,
-    BinaryOperation binary_op,
-    striped_layout_tag)
-{
-    long size = std::distance(first1, last1);
-    // Spawn a thread on each nodelet
-    for (long i = 0; i < NODELETS() && i < size; ++i) {
-        // Convert to striped iterators and forward to sequential version
-        typename ForwardIt1::as_striped_iterator first1_s = std::next(first1, i);
-        typename ForwardIt1::as_striped_iterator last1_s = std::next(last1, i);
-        typename ForwardIt2::as_striped_iterator first2_s = std::next(first2, i);
-        typename ForwardIt3::as_striped_iterator first3_s = std::next(first3, i);
-        cilk_migrate_hint(&*first1_s);
-        cilk_spawn transform_dispatch(
-            first1_s, last1_s,
-            first2_s,
-            first3_s,
-            binary_op,
-            sequential_layout_tag()
-        );
-    }
-}
+
 
 // Top-level dispatch functions
 
-// Unary op version
-template< class ForwardIt1, class ForwardIt2, class UnaryOperation >
-ForwardIt2 transform( ForwardIt1 first1, ForwardIt1 last1,
-                      ForwardIt2 d_first, UnaryOperation unary_op )
-{
-    typename iterator_layout<ForwardIt1>::value layout;
-    transform_dispatch(first1, last1, d_first, unary_op, layout);
-    return d_first + std::distance(first1, last1);
-}
+//// Unary op version
+//template< class ForwardIt1, class ForwardIt2, class UnaryOperation >
+//ForwardIt2 transform( ForwardIt1 first1, ForwardIt1 last1,
+//                      ForwardIt2 d_first, UnaryOperation unary_op )
+//{
+//    typename iterator_layout<ForwardIt1>::value layout;
+//    transform_dispatch(first1, last1, d_first, unary_op, layout);
+//    return d_first + std::distance(first1, last1);
+//}
 
 // Binary op version
-template< class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
-ForwardIt3 transform( ForwardIt1 first1, ForwardIt1 last1,
-                      ForwardIt2 first2,
-                      ForwardIt3 d_first, BinaryOperation binary_op)
+template< class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class ForwardIt3, class BinaryOperation >
+ForwardIt3 transform(
+    ExecutionPolicy&& policy,
+    ForwardIt1 first1, ForwardIt1 last1,
+    ForwardIt2 first2,
+    ForwardIt3 d_first, BinaryOperation binary_op)
 {
-    // TODO what if the layouts don't match?
-    typename iterator_layout<ForwardIt1>::value layout1;
-//    typename iterator_layout<ForwardIt2>::value layout2;
-//    static_assert(std::is_same<layout1, layout2>::value, "First two sequences must have the same layout");
-
-    transform_dispatch(first1, last1, first2, d_first, binary_op, layout1);
+    // TODO dispatch based on iterator layout
+    transform(policy, first1, last1, first2, d_first, binary_op);
     return d_first + std::distance(first1, last1);
 }
 
 
-} // end namespace parallel
-} // end namespace emu
+} // end namespace emu::parallel

@@ -22,8 +22,8 @@ namespace emu {
  * @tparam I Underlying pointer to value_type
  * @tparam use_nodelet_stride Advance pointer by NODELETS() when true
  */
-template<typename I, bool use_nodelet_stride>
-class striped_array_iterator_base
+template<typename I, typename std::iterator_traits<I>::difference_type stride>
+class stride_iterator
 {
 private:
     I it;
@@ -34,7 +34,7 @@ public:
 
     // Convert between striped/sequential mode
     template<bool U>
-    striped_array_iterator_base(const striped_array_iterator_base<I, U> &other) : it(other.it) {}
+    stride_iterator(const stride_iterator<I, U> &other) : it(other.it) {}
 
     // striped/sequential versions are friends
     friend class striped_array_iterator_base<I, !use_nodelet_stride>;
@@ -59,7 +59,6 @@ public:
     // All the other operators are boilerplate.
     self_type& operator+=(difference_type n)
     {
-        const long stride = use_nodelet_stride ? NODELETS() : 1;
         it += n * stride;
         return *this;
     }
