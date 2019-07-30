@@ -50,7 +50,7 @@ struct arguments {
             exit(1);
         } else {
             args._log2_num_elements = atol(argv[1]);
-            args._num_trials = atol(argv[1]);
+            args._num_trials = atol(argv[2]);
 
             if (args._log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
             if (args._num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
