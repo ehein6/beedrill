@@ -2,44 +2,45 @@
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/transform.h>
 #include <emu_cxx_utils/fill.h>
+#include <emu_cxx_utils/pointer_manipulation.h>
 #include <algorithm>
-
+#include <vector>
 #include <common.h>
 #include <numeric>
 
 using namespace emu::execution;
 
 struct stream {
-    emu::striped_array<long> _a, _b, _c;
-    explicit stream(long n) : _a(n), _b(n), _c(n) {}
+    emu::striped_array<long> a_, b_, c_;
+    explicit stream(long n) : a_(n), b_(n), c_(n) {}
 
     stream(const stream& other, emu::shallow_copy shallow)
-    : _a(other._a, shallow)
-    , _b(other._b, shallow)
-    , _c(other._c, shallow)
+    : a_(other.a_, shallow)
+    , b_(other.b_, shallow)
+    , c_(other.c_, shallow)
     {
     }
 
     void init()
     {
-        std::iota(_a.begin(), _a.end(), 0L);
-        emu::parallel::fill(parallel_policy(16), _a.begin(), _a.end(), 1L);
-        emu::parallel::fill(_b.begin(), _b.end(), 2L);
-        emu::parallel::fill(_c.begin(), _c.end(), -1L);
+        // forall i, A[i] = 1, B[i] = 2, C[i] = -1
+        cilk_spawn emu::parallel::fill(a_.begin(), a_.end(), 1L);
+        cilk_spawn emu::parallel::fill(b_.begin(), b_.end(), 2L);
+        cilk_spawn emu::parallel::fill(c_.begin(), c_.end(), -1L);
     }
 
     void run()
     {
-        emu::parallel::transform(par_limit, _a.begin(), _a.end(), _b.begin(), _c.begin(),
+        emu::parallel::transform(a_.begin(), a_.end(), b_.begin(), c_.begin(),
             [](long a, long b) { return a + b; }
         );
     }
 
     void validate()
     {
-        for (long i = 0; i < _c.size(); ++i) {
-            if (_c[i] != 3) {
-                LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", i, _c[i]);
+        for (long i = 0; i < c_.size(); ++i) {
+            if (c_[i] != 3) {
+                LOG("VALIDATION ERROR: c[%li] == %li (supposed to be 3)\n", i, c_[i]);
                 exit(1);
             }
         }
@@ -47,8 +48,8 @@ struct stream {
 };
 
 struct arguments {
-    long _log2_num_elements;
-    long _num_trials;
+    long log2_num_elements_;
+    long num_trials_;
 
     static arguments
     parse(int argc, char** argv)
@@ -58,11 +59,11 @@ struct arguments {
             LOG("Usage: %s log2_num_elements num_trials\n", argv[0]);
             exit(1);
         } else {
-            args._log2_num_elements = atol(argv[1]);
-            args._num_trials = atol(argv[2]);
+            args.log2_num_elements_ = atol(argv[1]);
+            args.num_trials_ = atol(argv[2]);
 
-            if (args._log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
-            if (args._num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
+            if (args.log2_num_elements_ <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
+            if (args.num_trials_ <= 0) { LOG("num_trials must be > 0"); exit(1); }
         }
         return args;
     }
@@ -73,17 +74,18 @@ int main(int argc, char * argv[])
 {
     auto args = arguments::parse(argc, argv);
 
-    long n = 1L << args._log2_num_elements;
+    long n = 1L << args.log2_num_elements_;
     long mbytes = n * sizeof(long) / (1024*1024);
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n",
         3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
     auto bench = emu::make_repl_copy<stream>(n);
+
 #ifndef NO_VALIDATE
     bench->init();
 #endif
     LOG("Doing vector addition...\n");
-    for (long trial = 0; trial < args._num_trials; ++trial) {
+    for (long trial = 0; trial < args.num_trials_; ++trial) {
         hooks_set_attr_i64("trial", trial);
         hooks_region_begin("stream");
         bench->run();

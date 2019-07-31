@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cassert>
 #include <cilk/cilk.h>
-#include "memoryweb_x86.h"
+#include <emu_c_utils/emu_c_utils.h>
 #include "pointer_manipulation.h"
 #include "execution_policy.h"
 
@@ -149,6 +149,8 @@ public:
     {
         new (dst) U(*src, shallow_copy());
     }
+
+    T* get()       { return this; }
 
     /**
      * Returns a reference to the copy of T on the Nth nodelet

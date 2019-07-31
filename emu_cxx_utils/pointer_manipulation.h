@@ -4,10 +4,8 @@
 #include <pmanip.h>
 #endif
 
-namespace emu {
-namespace pmanip {
+namespace emu::pmanip {
 
-/** View number of ptr */
 template <typename T>
 unsigned get_view(T * ptr)
 {
@@ -22,6 +20,15 @@ template<typename T>
 bool is_repl(T * ptr){
 #ifdef __le64__
     return emu::pmanip::get_view(ptr) == 0;
+#else
+    return false;
+#endif
+}
+
+template<typename T>
+bool is_striped(T * ptr){
+#ifdef __le64__
+    return emu::pmanip::get_view(ptr) > 1;
 #else
     return false;
 #endif
@@ -45,5 +52,4 @@ T * get_nth(T * repladdr, long n)
 #endif
 }
 
-} // end namespace pmanip
-} // end namespace emu
+} // end namespace emu::pmanip

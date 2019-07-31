@@ -1,14 +1,16 @@
 #pragma once
 
 #include "execution_policy.h"
+#include "stride_iterator.h"
 
 namespace emu::parallel {
+namespace detail {
 
 // Serial version
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-    emu::execution::sequenced_policy,
+    execution::sequenced_policy,
     Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // Forward to standard library implementation
@@ -19,12 +21,12 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-    emu::execution::parallel_policy policy,
-    emu::stride_iterator<Iterator> begin, emu::stride_iterator<Iterator> end,
+    execution::parallel_policy policy,
+    stride_iterator<Iterator> begin, stride_iterator<Iterator> end,
     UnaryFunction worker
 ) {
     auto grain = policy.grain_;
-    auto radix = emu::execution::spawn_radix;
+    auto radix = execution::spawn_radix;
     typename std::iterator_traits<Iterator>::difference_type size;
 
     // Recursive spawn
@@ -58,21 +60,18 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-    emu::execution::parallel_limited_policy policy,
+    execution::parallel_fixed_policy policy,
     Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // Recalculate grain size to limit thread count
-    auto grain = emu::execution::limit_grain(
-        policy.grain_,
-        end - begin,
-        emu::execution::threads_per_nodelet
-    );
-    // Forward to unlimited parallel version
+    // and forward to unlimited parallel version
     for_each(
-        emu::execution::parallel_policy(grain),
+        execution::compute_fixed_grain(policy, begin, end),
         begin, end, worker
     );
 }
+
+} // end namespace detail
 
 template<class ExecutionPolicy, class Iterator, class UnaryFunction>
 void
@@ -81,9 +80,9 @@ for_each(
     Iterator begin, Iterator end, UnaryFunction worker
 ){
     // Convert to stride iterators and forward
-    emu::parallel::for_each(policy,
-        emu::stride_iterator<Iterator>(begin),
-        emu::stride_iterator<Iterator>(end),
+    detail::for_each(policy,
+        stride_iterator<Iterator>(begin),
+        stride_iterator<Iterator>(end),
         worker
     );
 }
@@ -93,11 +92,10 @@ void
 for_each(Iterator begin, Iterator end, UnaryFunction worker)
 {
     // Assume default execution policy and forward
-    emu::parallel::for_each(
-        emu::execution::default_policy,
+    for_each(
+        execution::default_policy,
         begin, end, worker
     );
 }
-
 
 } // end namespace emu::parallel
