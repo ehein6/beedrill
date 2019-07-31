@@ -56,7 +56,6 @@ for_each(
     }
 }
 
-// Limited parallel version
 template<class Iterator, class UnaryFunction>
 void
 for_each(

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pointer_manipulation.h"
+
 namespace emu::execution {
 
 struct policy_base {};
@@ -28,7 +30,7 @@ struct parallel_fixed_policy : public grain_policy
 // Max number of elements to assign to each thread
 constexpr long default_grain = 128;
 // Max number of threads to spawn within a single thread
-constexpr long spawn_radix = 8;
+constexpr long spawn_radix = 64;
 // Target number of threads per nodelet
 constexpr long threads_per_nodelet = 64;
 
