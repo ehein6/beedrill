@@ -20,22 +20,10 @@ namespace emu {
  * @tparam I Underlying pointer to value_type
  * @tparam use_nodelet_stride Advance pointer by NODELETS() when true
  */
-template<typename I, typename std::iterator_traits<I>::difference_type stride>
+template<typename I>
 class stride_iterator
 {
-private:
-    I it;
 public:
-
-    // Create iterator from pointer
-    stride_iterator(I it) : it(it) {}
-
-    // Convert between striped/sequential mode
-    template<bool U>
-    stride_iterator(const stride_iterator<I, U> &other) : it(other.it) {}
-
-    // TODO striped/sequential versions are friends
-
     // TODO Typedef to allow converting between striped/sequential versions
     // Standard iterator typedefs for interop with C++ algorithms
     typedef stride_iterator self_type;
@@ -44,6 +32,18 @@ public:
     typedef typename std::iterator_traits<I>::difference_type difference_type;
     typedef typename std::iterator_traits<I>::pointer pointer;
     typedef typename std::iterator_traits<I>::reference reference;
+private:
+    // The wrapped iterator type
+    I it;
+    // The amount to add on each increment
+    difference_type stride;
+public:
+
+    stride_iterator(I it, difference_type stride=1) : it(it), stride(stride) {}
+
+    self_type stretch() {
+        return stride_iterator(it, stride*2);
+    }
 
     reference  operator*()                      { return *it; }
     reference  operator*() const                { return *it; }
@@ -112,7 +112,8 @@ public:
     friend difference_type
     operator- (const self_type& lhs, const self_type& rhs)
     {
-        return (lhs.it - rhs.it) / stride;
+        assert(lhs.stride == rhs.stride);
+        return (lhs.it - rhs.it) / lhs.stride;
     }
 };
 

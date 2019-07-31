@@ -28,6 +28,8 @@ inline constexpr parallel_policy par{512};
 inline constexpr parallel_limited_policy par_limit{512};
 inline constexpr parallel_dynamic_policy par_dyn{};
 
+inline constexpr auto default_policy = par_limit;
+
 // Max number of threads to spawn within a single thread
 constexpr long spawn_radix = 8;
 // Target number of threads per nodelet

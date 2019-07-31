@@ -65,10 +65,15 @@ int main(int argc, char * argv[])
     auto args = arguments::parse(argc, argv);
 
     long n = 1L << args._log2_num_elements;
+    long mbytes = n * sizeof(long) / (1024*1024);
+    long mbytes_per_nodelet = mbytes / NODELETS();
+    LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n",
+        3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
     auto bench = std::make_unique<stream>(n);
 #ifndef NO_VALIDATE
     bench->init();
 #endif
+    LOG("Doing vector addition \n");
     for (long trial = 0; trial < args._num_trials; ++trial) {
         hooks_set_attr_i64("trial", trial);
         hooks_region_begin("stream");
@@ -79,6 +84,8 @@ int main(int argc, char * argv[])
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 #ifndef NO_VALIDATE
+    LOG("Validating results...");
     bench->validate();
+    LOG("OK\n");
 #endif
 }

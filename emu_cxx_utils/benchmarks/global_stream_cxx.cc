@@ -2,8 +2,10 @@
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/transform.h>
 #include <emu_cxx_utils/fill.h>
+#include <algorithm>
 
 #include <common.h>
+#include <numeric>
 
 using namespace emu::execution;
 
@@ -20,7 +22,8 @@ struct stream {
 
     void init()
     {
-        emu::parallel::fill(_a.begin(), _a.end(), 1L);
+        std::iota(_a.begin(), _a.end(), 0L);
+        emu::parallel::fill(parallel_policy(16), _a.begin(), _a.end(), 1L);
         emu::parallel::fill(_b.begin(), _b.end(), 2L);
         emu::parallel::fill(_c.begin(), _c.end(), -1L);
     }
@@ -56,7 +59,7 @@ struct arguments {
             exit(1);
         } else {
             args._log2_num_elements = atol(argv[1]);
-            args._num_trials = atol(argv[1]);
+            args._num_trials = atol(argv[2]);
 
             if (args._log2_num_elements <= 0) { LOG("log2_num_elements must be > 0"); exit(1); }
             if (args._num_trials <= 0) { LOG("num_trials must be > 0"); exit(1); }
@@ -71,10 +74,15 @@ int main(int argc, char * argv[])
     auto args = arguments::parse(argc, argv);
 
     long n = 1L << args._log2_num_elements;
+    long mbytes = n * sizeof(long) / (1024*1024);
+    long mbytes_per_nodelet = mbytes / NODELETS();
+    LOG("Initializing arrays with %li elements each (%li MiB total, %li MiB per nodelet)\n",
+        3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
     auto bench = emu::make_repl_copy<stream>(n);
 #ifndef NO_VALIDATE
     bench->init();
 #endif
+    LOG("Doing vector addition...\n");
     for (long trial = 0; trial < args._num_trials; ++trial) {
         hooks_set_attr_i64("trial", trial);
         hooks_region_begin("stream");
@@ -85,6 +93,8 @@ int main(int argc, char * argv[])
         LOG("%3.2f MB/s\n", bytes_per_second / (1000000));
     }
 #ifndef NO_VALIDATE
+    LOG("Validating results...");
     bench->validate();
+    LOG("OK\n");
 #endif
 }
