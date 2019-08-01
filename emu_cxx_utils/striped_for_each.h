@@ -88,7 +88,7 @@ for_each(
 }
 
 template<class T, class UnaryFunction>
-void dynamic_worker(T*& next, const T* end, UnaryFunction unary_op)
+void dynamic_worker(T** next, const T* end, UnaryFunction unary_op)
 {
     for(T* i = atomic_addms(next, 1);
         i < end;
@@ -106,7 +106,7 @@ for_each(execution::parallel_dynamic_policy policy,
 ) {
     T* next = begin;
     for (long i = 0; i < execution::threads_per_nodelet; ++i) {
-        cilk_spawn dynamic_worker(next, end, unary_op);
+        cilk_spawn dynamic_worker(&next, end, unary_op);
     }
 }
 

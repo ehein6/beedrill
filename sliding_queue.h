@@ -147,10 +147,10 @@ public:
     {
         // First, spawn a thread on each nodelet to handle the local queue
         emu::repl_for_each(emu::execution::parallel_policy(1), *this,
-            [=](sliding_queue& queue){
+            [&](sliding_queue& queue){
                 // Spawn threads to dynamically pull items off of this queue
                 emu::parallel::for_each(
-                    emu::execution::fixed,
+                    emu::execution::dyn,
                     queue.begin(), queue.end(), worker
                 );
             }

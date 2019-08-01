@@ -3,21 +3,21 @@
 #include <emu_c_utils/emu_c_utils.h>
 
 namespace emu {
-//
-//template<class T, class U>
-//void remote_add(volatile T& ref, U value)
-//{
-//    static_assert(sizeof(T) == 8,
-//        "Remote operations are defined only for 64-bit types");
-//    REMOTE_ADD((volatile long*)&ref, (long)value);
-//}
 
-template<class T, class U>
-T atomic_addms(volatile T& ref, U value)
+// Increment 64-bit int
+inline long
+atomic_addms(volatile long * ptr, long value)
 {
-    static_assert(sizeof(T) == 8,
-        "Remote operations are defined only for 64-bit types");
-    return (T)ATOMIC_ADDMS((volatile long*)&ref,(long)value);
+    return ATOMIC_ADDMS(ptr, value);
+}
+
+// Increment pointer
+template<class T>
+inline T*
+atomic_addms(T * volatile * ptr, ptrdiff_t value)
+{
+    value *= sizeof(T);
+    return (T*)ATOMIC_ADDMS((volatile long*)ptr, (long)value);
 }
 
 //TODO implement all remotes/atomics
