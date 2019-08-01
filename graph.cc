@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <emu_c_utils/emu_c_utils.h>
+#include <emu_cxx_utils/fill.h>
 
 #include "graph.h"
 #include "dist_edge_list.h"
@@ -21,19 +22,16 @@ grab_edges(long * volatile * ptr, long num_edges)
 bool
 graph::check(dist_edge_list &dist_el) {
     long ok = 1;
-    dist_el.forall_edges(
-        emu::execution::parallel_limited_policy(128),
-        [] (long src, long dst, graph& g, long& ok) {
-            if (!g.out_edge_exists(src, dst)) {
-                LOG("Missing out edge for %li->%li\n", src, dst);
-                ok = 0;
-            }
-            if (!g.out_edge_exists(dst, src)) {
-                LOG("Missing out edge for %li->%li\n", src, dst);
-                ok = 0;
-            }
-        }, *this, ok
-    );
+    dist_el.forall_edges([&] (long src, long dst) {
+        if (!out_edge_exists(src, dst)) {
+            LOG("Missing out edge for %li->%li\n", src, dst);
+            ok = 0;
+        }
+        if (!out_edge_exists(dst, src)) {
+            LOG("Missing out edge for %li->%li\n", src, dst);
+            ok = 0;
+        }
+    });
     return (bool)ok;
 }
 
@@ -44,24 +42,19 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Initializing distributed vertex list...\n");
     auto g = emu::make_repl_copy<graph>(dist_el.num_vertices_, dist_el.num_edges_);
 
-    // Define execution policies for scanning the edge/vertex lists
-    emu::execution::parallel_limited_policy vertex_list_policy(128);
-    emu::execution::parallel_limited_policy edge_list_policy(128);
-
-    // Compute degree of each vertex
+        // Compute degree of each vertex
     LOG("Computing degree of each vertex...\n");
     hooks_region_begin("calculate_degrees");
     // Initialize the degree of each vertex to zero
-    g->forall_vertices(vertex_list_policy, [] (long v, graph& g) {
-        g.vertex_out_degree_[v] = 0;
-    }, *g);
+    emu::parallel::fill(
+        g->vertex_out_degree_.begin(), g->vertex_out_degree_.end(), 0L);
     // Scan the edge list and do remote atomic adds into vertex_out_degree
-    dist_el.forall_edges(edge_list_policy, [] (long src, long dst, graph & g) {
-        assert(src >= 0 && src < g.num_vertices());
-        assert(dst >= 0 && dst < g.num_vertices());
-        REMOTE_ADD(&g.vertex_out_degree_[src], 1);
-        REMOTE_ADD(&g.vertex_out_degree_[dst], 1);
-    }, *g);
+    dist_el.forall_edges([=, &g] (long src, long dst) {
+        assert(src >= 0 && src < g->num_vertices());
+        assert(dst >= 0 && dst < g->num_vertices());
+        REMOTE_ADD(&g->vertex_out_degree_[src], 1);
+        REMOTE_ADD(&g->vertex_out_degree_[dst], 1);
+    });
     hooks_region_end();
 
     // Count how many edges will need to be stored on each nodelet
@@ -70,9 +63,9 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Counting local edges...\n");
     hooks_region_begin("count_local_edges");
     mw_replicated_init(&g->num_local_edges_, 0);
-    g->forall_vertices(vertex_list_policy, [] (long v, graph & g) {
-        ATOMIC_ADDMS(&g.num_local_edges_, g.vertex_out_degree_[v]);
-    }, *g);
+    g->forall_vertices([=, &g](long v) {
+        ATOMIC_ADDMS(&g->num_local_edges_, g->vertex_out_degree_[v]);
+    });
     hooks_region_end();
 
     LOG("Allocating edge storage...\n");
@@ -104,18 +97,18 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // Assign each edge block a position within the big array
     LOG("Carving edge storage...\n");
     hooks_region_begin("carve_edge_storage");
-    g->forall_vertices(vertex_list_policy, [] (long v, graph& g) {
+    g->forall_vertices([=, &g](long v) {
         // Empty vertices don't need storage
-        if (g.vertex_out_degree_[v] > 0) {
+        if (g->vertex_out_degree_[v] > 0) {
             // Local vertices have one edge block on the local nodelet
-            g.vertex_out_neighbors_[v] = grab_edges(
-                &g.next_edge_storage_,
-                g.vertex_out_degree_[v]
+            g->vertex_out_neighbors_[v] = grab_edges(
+                &g->next_edge_storage_,
+                g->vertex_out_degree_[v]
             );
             // HACK Prepare to fill
-            g.vertex_out_degree_[v] = 0;
+            g->vertex_out_degree_[v] = 0;
         }
-    }, *g);
+    });
     hooks_region_end();
     // Populate the edge blocks with edges
     // Scan the edge list one more time
@@ -123,11 +116,11 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // atomically increment eb->nedgesblk to find out where it goes
     LOG("Filling edge blocks...\n");
     hooks_region_begin("fill_edge_blocks");
-    dist_el.forall_edges(edge_list_policy, [] (long src, long dst, graph& g) {
+    dist_el.forall_edges([&] (long src, long dst) {
         // Insert both ways for undirected graph
-        g.insert_edge(src, dst);
-        g.insert_edge(dst, src);
-    }, *g);
+        g->insert_edge(src, dst);
+        g->insert_edge(dst, src);
+    });
     hooks_region_end();
 
     // LOG("Checking graph...\n");

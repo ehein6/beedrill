@@ -33,35 +33,33 @@
 
 namespace emu {
 
-template<typename T, typename Function, typename... Args>
+template<typename T, typename Function>
 void repl_for_each(
     execution::sequenced_policy,
-    T & repl_ref, Function worker, Args&&... args
+    T &repl_ref, Function worker
 ){
     if (emu::pmanip::is_repl(&repl_ref)) {
         for (long nlet = 0; nlet < NODELETS(); ++nlet) {
             T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
-            worker(remote_ref, std::forward<Args>(args)...);
+            worker(remote_ref);
         }
     } else {
-        worker(repl_ref, std::forward<Args>(args)...);
+        worker(repl_ref);
     }
 }
 
-template<typename T, typename Function, typename... Args>
+template<typename T, typename Function>
 void repl_for_each(
     execution::parallel_policy,
-    T & repl_ref, Function worker, Args&&... args
+    T & repl_ref, Function worker
 ){
     if (emu::pmanip::is_repl(&repl_ref)) {
         for (long nlet = 0; nlet < NODELETS(); ++nlet) {
             T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
-            cilk_spawn_at(&remote_ref) worker(
-                repl_ref, std::forward<Args>(args)...
-            );
+            cilk_spawn_at(&remote_ref) worker(repl_ref);
         }
     } else {
-        worker(repl_ref, std::forward<Args>(args)...);
+        worker(repl_ref);
     }
 }
 
@@ -232,7 +230,7 @@ public:
     T& get_nth(long n)
     {
         assert(n < NODELETS());
-        return *static_cast<T*>(mw_get_nth(this, n));
+        return *pmanip::get_nth(&val, n);
     }
 
     // Default constructor
@@ -243,6 +241,8 @@ public:
     {
         operator=(x);
     }
+
+    T* operator&() { return &val; }
 
     // Make it easy to convert back to T
     operator T& ()
@@ -258,7 +258,7 @@ public:
 
     // Initializes all copies to the same value
     repl&
-    operator=(T rhs)
+    operator=(T& rhs)
     {
         for (long i = 0; i < NODELETS(); ++i) {
             get_nth(i) = rhs;

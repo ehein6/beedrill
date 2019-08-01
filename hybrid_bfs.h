@@ -6,7 +6,6 @@
 #include "common.h"
 #include "graph.h"
 #include "sliding_queue.h"
-#include "bitmap.h"
 
 
 class hybrid_bfs {
@@ -18,21 +17,12 @@ private:
     emu::striped_array<long> new_parent_;
     // Used to store vertices to visit in the next frontier
     sliding_queue queue_;
-    // Bitmap representation of the current frontier
-    bitmap frontier_;
-    // Bitmap representation of the next frontier
-    bitmap next_frontier_;
     // Tracks the sum of the degrees of vertices in the frontier
     // Declared here to avoid re-allocating before each step
     emu::repl<long> scout_count_;
     emu::repl<long> awake_count_;
 
-    using min_grain = emu::execution::parallel_limited_policy;
-
-    void queue_to_bitmap();
-    void bitmap_to_queue();
     void dump_queue_stats();
-    void dump_bitmap_stats();
 
     long top_down_step_with_remote_writes();
     long top_down_step_with_migrating_threads();
@@ -53,6 +43,3 @@ public:
     void print_tree();
     long count_num_traversed_edges();
 };
-
-
-

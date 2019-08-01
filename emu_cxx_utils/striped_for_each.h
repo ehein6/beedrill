@@ -2,6 +2,7 @@
 
 #include "execution_policy.h"
 #include "stride_iterator.h"
+#include "intrinsics.h"
 
 namespace emu::parallel {
 namespace detail {
@@ -84,6 +85,29 @@ for_each(
         stride_iterator<Iterator>(end),
         worker
     );
+}
+
+template<class T, class UnaryFunction>
+void dynamic_worker(T*& next, const T* end, UnaryFunction unary_op)
+{
+    for(T* i = atomic_addms(next, 1);
+        i < end;
+        i = atomic_addms(next, 1)) {
+        unary_op(*i);
+    }
+}
+
+// Dynamic schedule: only raw pointers supported for now
+// since we need an atomic increment
+template<class T, class UnaryFunction>
+void
+for_each(execution::parallel_dynamic_policy policy,
+         T* begin, T* end, UnaryFunction unary_op
+) {
+    T* next = begin;
+    for (long i = 0; i < execution::threads_per_nodelet; ++i) {
+        cilk_spawn dynamic_worker(next, end, unary_op);
+    }
 }
 
 template<class Iterator, class UnaryFunction>

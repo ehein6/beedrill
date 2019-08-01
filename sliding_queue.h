@@ -142,23 +142,18 @@ public:
         }
     }
 
-    template<typename F, typename... Args>
-    void forall_items(F worker, Args&&... args)
+    template<class Function>
+    void forall_items(Function worker)
     {
         // First, spawn a thread on each nodelet to handle the local queue
         emu::repl_for_each(emu::execution::parallel_policy(1), *this,
-            [](sliding_queue& queue, F worker, Args&&... args){
+            [=](sliding_queue& queue){
                 // Spawn threads to dynamically pull items off of this queue
-                emu::parallel::for_each_i(
-                    emu::execution::parallel_dynamic_policy(),
-                    queue.start_, queue.end_,
-                    [](long i, sliding_queue& queue, F worker, Args&&... args){
-                        // Pass the next item in the queue to the worker
-                        long item = queue.buffer_[i];
-                        worker(item, std::forward<Args>(args)...);
-                    }, queue, worker, std::forward<Args>(args)...
+                emu::parallel::for_each(
+                    emu::execution::fixed,
+                    queue.begin(), queue.end(), worker
                 );
-            }, worker, std::forward<Args>(args)...
+            }
         );
     }
 };

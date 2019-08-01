@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pointer_manipulation.h"
+#include <emu_c_utils/emu_c_utils.h>
 
 namespace emu::execution {
 

@@ -218,13 +218,11 @@ void
 scatter_edges(edge_list& el, dist_edge_list& dist_el)
 {
     // Scatter from local to distributed edge list
-    emu::parallel::for_each_i(emu::execution::parallel_limited_policy(1024),
-        0L, el.num_edges,
-        [] (long i, dist_edge_list &del, edge_list& el) {
-            del.src_[i] = el.edges[i].src;
-            del.dst_[i] = el.edges[i].dst;
-        }, dist_el, el
-    );
+    emu::parallel::for_each(el.edges, el.edges + el.num_edges, [&] (edge &e) {
+        long i = &e - el.edges;
+        dist_el.src_[i] = e.src;
+        dist_el.dst_[i] = e.dst;
+    });
 }
 
 // Initializes the distributed edge list EL from the file

@@ -48,15 +48,21 @@ struct dist_edge_list
     // Print the edge list to stdout for debugging
     void dump() const;
 
-    template<typename P, typename F, typename... Args>
-    void forall_edges(P policy, F worker, Args&&... args)
+    template<class Policy, class Function>
+    void forall_edges(Policy policy, Function worker)
     {
-        emu::parallel::striped_for_each_i(policy, src_.data(), 0L, src_.size(),
-            [](long i, dist_edge_list& dist_el, F worker, Args&&... args) {
-                long src = dist_el.src_[i];
-                long dst = dist_el.dst_[i];
-                worker(src, dst, std::forward<Args>(args)...);
-            }, *this, worker, std::forward<Args>(args)...
+        emu::parallel::for_each(policy, src_.begin(), src_.end(),
+            [=](long& src) {
+                long i = &src - src_.begin();
+                long dst = dst_[i];
+                worker(src, dst);
+            }
         );
+    }
+
+    template<class Function>
+    void forall_edges(Function worker)
+    {
+        forall_edges(emu::execution::default_policy, worker);
     }
 };
