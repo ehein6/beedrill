@@ -112,7 +112,7 @@ public:
     void forall_vertices(Policy policy, Function worker) {
         emu::parallel::for_each(policy,
             vertex_out_degree_.begin(), vertex_out_degree_.end(),
-            [=](long &degree) {
+            [&](long &degree) {
                 // Compute index in table from the pointer
                 long vertex_id = &degree - vertex_out_degree_.begin();
                 worker(vertex_id);
@@ -142,7 +142,7 @@ public:
         long *edges_end = edges_begin + degree;
         // Spawn threads over the range according to the specified policy
         emu::parallel::for_each(policy, edges_begin, edges_end,
-            [=](long dst) {
+            [&](long dst) {
                 worker(src, dst);
             }
         );

@@ -52,7 +52,7 @@ struct dist_edge_list
     void forall_edges(Policy policy, Function worker)
     {
         emu::parallel::for_each(policy, src_.begin(), src_.end(),
-            [=](long& src) {
+            [&](long& src) {
                 long i = &src - src_.begin();
                 long dst = dst_[i];
                 worker(src, dst);
