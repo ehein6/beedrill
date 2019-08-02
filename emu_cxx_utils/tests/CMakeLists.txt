@@ -26,7 +26,7 @@ if (GTEST_FOUND)
     endfunction()
 
     add_test_exe(test_local_array.cc)
-    add_test_exe(test_blocked_array.cc)
+#    add_test_exe(test_blocked_array.cc)
     add_test_exe(test_striped_array.cc)
 #    add_test_exe(codegen_bug.cc)
 #    add_test_exe(invariant_bug.cc)

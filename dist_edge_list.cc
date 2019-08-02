@@ -5,33 +5,8 @@
 #include <string.h>
 #include <emu_cxx_utils/for_each.h>
 
-// TODO add these to emu_c_utils
-//#ifndef __le64__
-//static inline FILE *
-//mw_fopen(const char *path, const char *mode, void *local_ptr)
-//{
-//    (void)local_ptr;
-//    return fopen(path, mode);
-//}
-//static inline int
-//mw_fclose(FILE * fp)
-//{
-//    return fclose(fp);
-//}
-//static inline size_t
-//mw_fread(void *ptr, size_t size, size_t nmemb, FILE *fp)
-//{
-//    return fread(ptr, size, nmemb, fp);
-//}
-//static inline size_t
-//mw_fwrite(void *ptr, size_t size, size_t nmemb, FILE *fp)
-//{
-//    return fwrite(ptr, size, nmemb, fp);
-//}
-//
-//#else
-//#include <memoryweb/io.h>
-//#endif
+using namespace emu;
+using namespace emu::execution;
 
 struct edge {
     long src;
@@ -218,7 +193,7 @@ void
 scatter_edges(edge_list& el, dist_edge_list& dist_el)
 {
     // Scatter from local to distributed edge list
-    emu::parallel::for_each(el.edges, el.edges + el.num_edges, [&] (edge &e) {
+    parallel::for_each(fixed, el.edges, el.edges + el.num_edges, [&] (edge &e) {
         long i = &e - el.edges;
         dist_el.src_[i] = e.src;
         dist_el.dst_[i] = e.dst;

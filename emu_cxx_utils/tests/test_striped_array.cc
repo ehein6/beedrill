@@ -14,6 +14,6 @@ INSTANTIATE_TYPED_TEST_CASE_P(StripedArrayIteratorTests, iterator_test, emu::str
 #include "transform_test_template.h"
 INSTANTIATE_TYPED_TEST_CASE_P(StripedArrayTransformTests, transform_test, transform_test_types<emu::striped_array>);
 
-#include "reduce_test_template.h"
-INSTANTIATE_TYPED_TEST_CASE_P(StripedArrayReduceLongTests, reduce_test, emu::striped_array<long>);
-INSTANTIATE_TYPED_TEST_CASE_P(StripedArrayReduceDoubleTests, reduce_test, emu::striped_array<double>);
+//#include "reduce_test_template.h"
+//INSTANTIATE_TYPED_TEST_CASE_P(StripedArrayReduceLongTests, reduce_test, emu::striped_array<long>);
+//INSTANTIATE_TYPED_TEST_CASE_P(StripedArrayReduceDoubleTests, reduce_test, emu::striped_array<double>);

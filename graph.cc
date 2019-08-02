@@ -10,6 +10,9 @@
 #include "graph.h"
 #include "dist_edge_list.h"
 
+using namespace emu;
+using namespace emu::execution;
+
 static inline long *
 grab_edges(long * volatile * ptr, long num_edges)
 {
@@ -46,7 +49,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Computing degree of each vertex...\n");
     hooks_region_begin("calculate_degrees");
     // Initialize the degree of each vertex to zero
-    emu::parallel::fill(
+    parallel::fill(fixed,
         g->vertex_out_degree_.begin(), g->vertex_out_degree_.end(), 0L);
     // Scan the edge list and do remote atomic adds into vertex_out_degree
     dist_el.forall_edges([=, &g] (long src, long dst) {

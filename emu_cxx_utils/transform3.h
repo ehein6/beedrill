@@ -104,20 +104,4 @@ transform(
     );
 }
 
-template<class ForwardIt1, class ForwardIt2, class ForwardIt3,
-    class BinaryOperation>
-void
-transform(
-    ForwardIt1 first1, ForwardIt1 last1,
-    ForwardIt2 first2,
-    ForwardIt3 first3,
-    BinaryOperation binary_op)
-{
-    // Assume default execution policy and forward
-    transform(
-        execution::default_policy,
-        first1, last1, first2, first3, binary_op
-    );
-}
-
 } // end namespace emu::parallel

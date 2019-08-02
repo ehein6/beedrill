@@ -8,6 +8,7 @@
 #include <common.h>
 #include <numeric>
 
+using namespace emu;
 using namespace emu::execution;
 
 struct stream {
@@ -24,14 +25,14 @@ struct stream {
     void init()
     {
         // forall i, A[i] = 1, B[i] = 2, C[i] = -1
-        cilk_spawn emu::parallel::fill(a_.begin(), a_.end(), 1L);
-        cilk_spawn emu::parallel::fill(b_.begin(), b_.end(), 2L);
-        cilk_spawn emu::parallel::fill(c_.begin(), c_.end(), -1L);
+        cilk_spawn parallel::fill(fixed, a_.begin(), a_.end(), 1L);
+        cilk_spawn parallel::fill(fixed, b_.begin(), b_.end(), 2L);
+        cilk_spawn parallel::fill(fixed, c_.begin(), c_.end(), -1L);
     }
 
     void run()
     {
-        emu::parallel::transform(a_.begin(), a_.end(), b_.begin(), c_.begin(),
+        parallel::transform(fixed, a_.begin(), a_.end(), b_.begin(), c_.begin(),
             [](long a, long b) { return a + b; }
         );
     }

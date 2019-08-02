@@ -150,7 +150,7 @@ public:
             [&](sliding_queue& queue){
                 // Spawn threads to dynamically pull items off of this queue
                 emu::parallel::for_each(
-                    emu::execution::dyn,
+                    emu::execution::fixed,
                     queue.begin(), queue.end(), worker
                 );
             }
