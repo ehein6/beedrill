@@ -35,16 +35,17 @@ transform(
         size = last1 - first1;
         if (size / grain <= radix) break;
         // Spawn a thread to deal with the odd elements
-        auto first1_odds = (first1 + 1).stretch();
-        auto last1_odds = (last1 + 1).stretch();
-        auto first2_odds = (first2 + 1).stretch();
+        auto first1_odds = first1 + 1;
+        auto last1_odds = last1;
+        auto first2_odds = first2 + 1;
+        stretch(first1_odds, last1_odds);
+        stretch(first2);
         cilk_spawn_at(&*(first1_odds)) transform( policy,
             first1_odds, last1_odds, first2_odds, unary_op
         );
         // "Stretch" the iterators, so they only cover the even elements
-        first1 = first1.stretch();
-        last1 = last1.stretch();
-        first2 = first2.stretch();
+        stretch(first1, last1);
+        stretch(first2);
     }
 
     // Serial spawn

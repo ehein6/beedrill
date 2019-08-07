@@ -49,6 +49,13 @@ public:
         end = begin + size;
     }
 
+    friend void
+    stretch(self_type& self)
+    {
+        // Double the stride
+        self.stride *= 2;
+    }
+
     // This is the magic, incrementing moves you forward by 'stride' elements
     // All the other operators are boilerplate.
     self_type& operator+=(difference_type n)
