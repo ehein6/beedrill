@@ -236,6 +236,11 @@ public:
     // Default constructor
     repl<T>() = default;
 
+    repl(const repl& other)
+    {
+        operator=(other.val);
+    }
+
     // Wrapper constructor to initialize T on each nodelet
     repl<T>(T x)
     {
@@ -260,7 +265,7 @@ public:
 
     // Initializes all copies to the same value
     repl&
-    operator=(T& rhs)
+    operator=(const T& rhs)
     {
         for (long i = 0; i < NODELETS(); ++i) {
             get_nth(i) = rhs;
