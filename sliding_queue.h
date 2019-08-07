@@ -70,7 +70,7 @@ public:
     get_nth(long n)
     {
         assert(n < NODELETS());
-        return *static_cast<sliding_queue*>(mw_get_nth(this, n));
+        return *emu::pmanip::get_nth(this, n);
     }
 
 
