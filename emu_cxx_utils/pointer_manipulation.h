@@ -7,7 +7,7 @@
 namespace emu::pmanip {
 
 template <typename T>
-unsigned get_view(T * ptr)
+unsigned get_view(const T * ptr)
 {
 #ifdef __le64__
     return ( (((long)(ptr)) & __MW_VIEW_MASK__) >> __MW_VIEW_SHIFT__);
@@ -17,7 +17,7 @@ unsigned get_view(T * ptr)
 }
 
 template<typename T>
-bool is_repl(T * ptr){
+bool is_repl(const T * ptr){
 #ifdef __le64__
     return emu::pmanip::get_view(ptr) == 0;
 #else
@@ -26,7 +26,7 @@ bool is_repl(T * ptr){
 }
 
 template<typename T>
-bool is_striped(T * ptr){
+bool is_striped(const T * ptr){
 #ifdef __le64__
     return emu::pmanip::get_view(ptr) > 1;
 #else
@@ -51,5 +51,12 @@ T * get_nth(T * repladdr, long n)
     return repladdr;
 #endif
 }
+
+template <typename T>
+const T * get_nth(const T * repladdr, long n)
+{
+    return const_cast<const T*>(get_nth(repladdr, n));
+}
+
 
 } // end namespace emu::pmanip
