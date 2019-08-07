@@ -256,6 +256,8 @@ public:
         return val;
     }
 
+    T& get() { return val; }
+
     // Initializes all copies to the same value
     repl&
     operator=(T& rhs)
