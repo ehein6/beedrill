@@ -1,31 +1,19 @@
 #pragma once
 
-extern "C" {
-#ifdef __le64__
-#include <memoryweb.h>
-#else
-#include "memoryweb_x86.h"
-#endif
-}
 #include <cassert>
-#include <algorithm>
 #include <iterator>
 
 namespace emu {
 
 /**
- * Iterator for striped_array
- * If use_nodelet_stride is false, then this class behaves exactly like a pointer
- * If use_nodelet_stride is true, then the iterator moves in steps of NODELETS()
+ * An iterator wrapper, which advances the underlying iterator by several elements at a time.
  *
- * @tparam I Underlying pointer to value_type
- * @tparam use_nodelet_stride Advance pointer by NODELETS() when true
+ * @tparam I Wrapped iterator type
  */
 template<typename I>
 class stride_iterator
 {
 public:
-    // TODO Typedef to allow converting between striped/sequential versions
     // Standard iterator typedefs for interop with C++ algorithms
     typedef stride_iterator self_type;
     typedef typename std::iterator_traits<I>::iterator_category iterator_category;
@@ -42,17 +30,26 @@ public:
 
     stride_iterator(I it, difference_type stride=1) : it(it), stride(stride) {}
 
-    self_type stretch() {
-        return stride_iterator(it, stride*2);
-    }
-
     reference  operator*()                      { return *it; }
     reference  operator*() const                { return *it; }
     pointer    operator->()                     { return it; }
     pointer    operator->() const               { return it; }
-    reference  operator[](difference_type i)    { return *(this + i); } // FIXME can we use 'this' like this?
+    reference  operator[](difference_type i)    { return *(*(this) + i); }
 
-    // This is the magic, incrementing a striped iterator moves you forward by 'stride' elements
+    // Modifies a pair of stride iterators, doubling their stride
+    // The resulting range will cover every other element
+    friend void
+    stretch(self_type& begin, self_type& end)
+    {
+        // Compute new size of range (divide by 2 and round up)
+        difference_type size = (end - begin + 1) / 2;
+        // Double the stride
+        begin.stride *= 2;
+        // Recalculate past-the-end point based on new stride
+        end = begin + size;
+    }
+
+    // This is the magic, incrementing moves you forward by 'stride' elements
     // All the other operators are boilerplate.
     self_type& operator+=(difference_type n)
     {
@@ -110,6 +107,7 @@ public:
     }
 
     // Difference between iterators
+    // Subtract underlying iterators and divide by the stride
     friend difference_type
     operator- (const self_type& lhs, const self_type& rhs)
     {

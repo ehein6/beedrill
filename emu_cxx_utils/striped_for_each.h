@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "execution_policy.h"
 #include "stride_iterator.h"
 #include "intrinsics.h"
@@ -36,14 +38,13 @@ for_each(
         size = end - begin;
         if (size / grain <= radix) break;
         // Spawn a thread to deal with the odd elements
-        auto begin_odds = (begin + 1).stretch();
-        auto end_odds = (end + 1).stretch();
+        auto begin_odds = begin + 1, end_odds = end;
+        stretch(begin_odds, end_odds);
         cilk_spawn_at(&*(begin_odds)) for_each(
             policy, begin_odds, end_odds, worker
         );
         // "Stretch" the iterator, so it only covers the even elements
-        begin = begin.stretch();
-        end = end.stretch();
+        stretch(begin, end);
     }
     // Serial spawn
     for (; begin < end; begin += grain) {
