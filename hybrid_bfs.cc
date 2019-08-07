@@ -137,21 +137,14 @@ hybrid_bfs::bottom_up_step()
     g_->forall_vertices([&](long v) {
         if (parent_[v] >= 0) { return; }
         // Look for neighbors who are in the frontier
-        long num_parents = 0;
         g_->forall_out_neighbors(emu::execution::seq, v, [&](long child, long parent) {
             // If the neighbor is in the frontier...
             if (parent_[parent] >= 0) {
                 // Claim as a parent
                 new_parent_[child] = parent;
-                // Increment number of parents found
-                REMOTE_ADD(&num_parents, 1);
                 // TODO No need to keep looking for a parent
             }
         });
-        // Track number of vertices woken up in this step
-        // If we run in parallel, we may find several parents, but
-        // we still only increment the counter once per vertex added.
-        if (num_parents > 0) { REMOTE_ADD(&awake_count_, 1); }
     });
 
     // Add to the queue all vertices that didn't have a parent before
@@ -161,6 +154,8 @@ hybrid_bfs::bottom_up_step()
             parent_[v] = new_parent_[v];
             // Add to the queue for the next frontier
             queue_.push_back(v);
+            // Track number of vertices woken up in this step
+            REMOTE_ADD(&awake_count_, 1);
         }
     });
     return repl_reduce(awake_count_, std::plus<>());
