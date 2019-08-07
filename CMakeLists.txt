@@ -79,16 +79,20 @@ add_emusim_test( "bfs_beamer_hybrid"
 )
 
 
+add_executable(triangle_count
+   graph.h
+   graph.cc
+   dist_edge_list.h
+   dist_edge_list.cc
+   ack_control.h
+   tc.h
+   tc.cc
+   tc_main.cc
+)
 
-#add_executable(tc
-#    graph.h
-#    graph.cc
-#    dist_edge_list.h
-#    dist_edge_list.cc
-#    ack_control.h
-#    tc.h
-#    tc.cc
-#    tc_main.cc
-#)
+add_emusim_test( "triangle_count"
+    triangle_count.mwx --graph ${TEST_GRAPH} --check_results
+)
+
 
 add_subdirectory(emu_cxx_utils)

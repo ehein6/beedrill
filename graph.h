@@ -125,6 +125,31 @@ public:
         forall_vertices(emu::execution::default_policy, worker);
     }
 
+    using edge_iterator = long*;
+
+    edge_iterator
+    out_edges_begin(long src)
+    {
+        // Find the edge list for this vertex
+        return vertex_out_neighbors_[src];
+    }
+
+    edge_iterator
+    out_edges_end(long src)
+    {
+        return out_edges_begin(src) + vertex_out_degree_[src];
+    }
+
+    template<class Compare>
+    void
+    sort_edge_lists(Compare comp)
+    {
+        forall_vertices([&](long v){
+            std::sort(out_edges_begin(v), out_edges_end(v), comp);
+        });
+    }
+
+
     /**
      * Map a function in parallel across all neighbors of vertex @c vertex_id
      *
@@ -136,12 +161,8 @@ public:
     template<class Policy, class Function>
     void forall_out_neighbors(Policy policy, long src, Function worker)
     {
-        // Find the edge list for this vertex
-        long *edges_begin = vertex_out_neighbors_[src];
-        long degree = vertex_out_degree_[src];
-        long *edges_end = edges_begin + degree;
         // Spawn threads over the range according to the specified policy
-        emu::parallel::for_each(policy, edges_begin, edges_end,
+        emu::parallel::for_each(policy, out_edges_begin(src), out_edges_end(src),
             [&](long dst) {
                 worker(src, dst);
             }

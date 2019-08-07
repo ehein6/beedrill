@@ -38,7 +38,6 @@ graph::check(dist_edge_list &dist_el) {
     return (bool)ok;
 }
 
-
 std::unique_ptr<emu::repl_copy<graph>>
 graph::from_edge_list(dist_edge_list & dist_el)
 {
