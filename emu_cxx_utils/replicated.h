@@ -158,13 +158,13 @@ public:
     T& get_nth(long n)
     {
         assert(n < NODELETS());
-        return *static_cast<T*>(mw_get_nth(this, n));
+        return *emu::pmanip::get_nth(this, n);
     }
 
     const T& get_nth(long n) const
     {
         assert(n < NODELETS());
-        return *static_cast<const T*>(mw_get_nth((void*)this, n));
+        return *emu::pmanip::get_nth(this, n);
     }
 
     // Wrapper constructor to copy T to each nodelet after running the requested constructor
@@ -305,7 +305,7 @@ public:
     T& get_nth(long n)
     {
         assert(n < NODELETS());
-        return *static_cast<T*>(mw_get_nth(this, n));
+        return *emu::pmanip::get_nth(this, n);
     }
 
     // Constructor template - allows repl_ctor<T> to be constructed just like a T
