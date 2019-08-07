@@ -96,6 +96,7 @@ struct tc_args
 
 int main(int argc, char ** argv)
 {
+    bool success = true;
     // Set active region for hooks
     const char* active_region = getenv("HOOKS_ACTIVE_REGION");
     if (active_region != NULL) {
@@ -117,7 +118,7 @@ int main(int argc, char ** argv)
     // Build the graph
     LOG("Constructing graph...\n");
     auto g = graph::from_edge_list(*dist_el);
-    LOG("Sorting edge lists...");
+    LOG("Sorting edge lists...\n");
     g->sort_edge_lists([](long lhs, long rhs) { return lhs < rhs; });
 
     g->print_distribution();
@@ -127,6 +128,7 @@ int main(int argc, char ** argv)
             LOG("PASS\n");
         } else {
             LOG("FAIL\n");
+            success = false;
         };
     }
     if (args.dump_graph) {
@@ -161,8 +163,9 @@ int main(int argc, char ** argv)
             LOG("PASS\n");
         } else {
             LOG("FAIL\n");
+            success = false;
         }
     }
 
-    return 0;
+    return !success;
 }

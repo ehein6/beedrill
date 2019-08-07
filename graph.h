@@ -144,9 +144,11 @@ public:
     void
     sort_edge_lists(Compare comp)
     {
+        hooks_region_begin("sort_edge_lists");
         forall_vertices([&](long v){
             std::sort(out_edges_begin(v), out_edges_end(v), comp);
         });
+        hooks_region_end();
     }
 
 

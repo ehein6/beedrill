@@ -18,7 +18,10 @@ find_package(emu_c_utils REQUIRED)
 link_libraries(${EMU_C_UTILS_LIBRARIES})
 include_directories(${EMU_C_UTILS_INCLUDE_DIRS})
 
+# Build emu_cxx_utils
+add_subdirectory(emu_cxx_utils)
 
+# Macro for running tests on x86 or emusim
 function(add_emusim_test name command)
     if (CMAKE_SYSTEM_NAME STREQUAL Emu1)
         # Run the test in the simulator
@@ -95,4 +98,3 @@ add_emusim_test( "triangle_count"
 )
 
 
-add_subdirectory(emu_cxx_utils)

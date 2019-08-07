@@ -171,6 +171,7 @@ pick_random_vertex(graph& g, lcg& rng)
 
 int main(int argc, char ** argv)
 {
+    bool success = true;
     // Set active region for hooks
     const char* active_region = getenv("HOOKS_ACTIVE_REGION");
     if (active_region != NULL) {
@@ -202,6 +203,7 @@ int main(int argc, char ** argv)
             LOG("PASS\n");
         } else {
             LOG("FAIL\n");
+            success = false;
         };
     }
     if (args.dump_graph) {
@@ -282,6 +284,7 @@ int main(int argc, char ** argv)
                 LOG("PASS\n");
             } else {
                 LOG("FAIL\n");
+                success = false;
 //                hybrid_bfs_print_tree();
             }
         }
@@ -300,5 +303,5 @@ int main(int argc, char ** argv)
         (1e-6 * num_edges_traversed_all_trials) / (time_ms_all_trials / 1000)
     );
 
-    return 0;
+    return !success;
 }
