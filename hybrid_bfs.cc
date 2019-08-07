@@ -10,6 +10,7 @@ hybrid_bfs::hybrid_bfs(graph & g)
 , new_parent_(g.num_vertices())
 , queue_(g.num_vertices())
 , scout_count_(0L)
+, awake_count_(0L)
 {
     // Force ack controller singleton to initialize itself
     ack_control_init();
@@ -22,6 +23,7 @@ hybrid_bfs::hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag)
 , new_parent_(other.new_parent_, tag)
 , queue_(other.queue_, tag)
 , scout_count_(other.scout_count_)
+, awake_count_(other.awake_count_)
 {}
 
 /**
@@ -50,7 +52,7 @@ hybrid_bfs::top_down_step_with_remote_writes()
     g_->forall_vertices([&](long v) {
         if (parent_[v] < 0 && new_parent_[v] >= 0) {
             // Update count with degree of new vertex
-            REMOTE_ADD(&static_cast<long&>(scout_count_), -parent_[v]);
+            REMOTE_ADD(&scout_count_, -parent_[v]);
             // Set parent
             parent_[v] = new_parent_[v];
             // Add to the queue for the next frontier
@@ -108,7 +110,7 @@ hybrid_bfs::top_down_step_with_migrating_threads()
                 if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
                     // Add it to the queue
                     queue_.push_back(dst);
-                    REMOTE_ADD(&static_cast<long&>(scout_count_), -curr_val);
+                    REMOTE_ADD(&scout_count_, -curr_val);
                 }
             }
         });
@@ -129,8 +131,6 @@ hybrid_bfs::top_down_step_with_migrating_threads()
 long
 hybrid_bfs::bottom_up_step()
 {
-    awake_count_ = 0;
-
     // For all vertices without a parent...
     g_->forall_vertices([&](long v) {
         if (parent_[v] >= 0) { return; }
@@ -142,7 +142,7 @@ hybrid_bfs::bottom_up_step()
                 // Claim as a parent
                 new_parent_[child] = parent;
                 // Increment number of parents found
-                REMOTE_ADD(&awake_count_, 1);
+                REMOTE_ADD(&num_parents, 1);
                 // TODO No need to keep looking for a parent
             }
         });
@@ -189,7 +189,6 @@ hybrid_bfs::run_beamer (long source, long alpha, long beta)
         if (scout_count > edges_to_check / alpha) {
             long awake_count, old_awake_count;
             awake_count = queue_.combined_size();
-            queue_.slide_all_windows();
             // Do bottom-up steps for a while
             do {
                 old_awake_count = awake_count;
@@ -427,7 +426,7 @@ hybrid_bfs::count_num_traversed_edges()
     auto sum = emu::make_repl<long>(0);
     g_->forall_vertices([&] (long v) {
         if (parent_[v] >= 0) {
-            REMOTE_ADD(&*sum, g_->out_degree(v));
+            REMOTE_ADD(&sum->get(), g_->out_degree(v));
         }
     });
 
