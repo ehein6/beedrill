@@ -196,6 +196,17 @@ int main(int argc, char ** argv)
     // Build the graph
     LOG("Constructing graph...\n");
     auto g = graph::from_edge_list(*dist_el);
+    if (args.sort_edge_blocks) {
+        LOG("Sorting edge lists by nodelet...\n");
+        g->sort_edge_lists([](long lhs, long rhs) {
+            unsigned long nlet_mask = NODELETS() - 1;
+            unsigned long lhs_nlet = lhs & nlet_mask;
+            unsigned long rhs_nlet = rhs & nlet_mask;
+            return lhs_nlet < rhs_nlet;
+        });
+    }
+
+    // Print graph statistics
     g->print_distribution();
     if (args.check_graph) {
         LOG("Checking graph...");
@@ -221,7 +232,6 @@ int main(int argc, char ** argv)
     LOG("Initializing BFS data structures...\n");
     hooks_set_attr_str("algorithm", args.algorithm);
 
-
     enum algorithm {
         REMOTE_WRITES,
         MIGRATING_THREADS,
@@ -240,12 +250,11 @@ int main(int argc, char ** argv)
         LOG("Algorithm '%s' not implemented!\n", args.algorithm);
         exit(1);
     }
-
     auto bfs = emu::make_repl_copy<hybrid_bfs>(*g);
 
+    // Run trials
     long num_edges_traversed_all_trials = 0;
     double time_ms_all_trials = 0;
-
     long source;
     for (long s = 0; s < args.num_trials; ++s) {
         // Randomly pick a source vertex with positive degree
