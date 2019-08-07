@@ -131,6 +131,8 @@ hybrid_bfs::top_down_step_with_migrating_threads()
 long
 hybrid_bfs::bottom_up_step()
 {
+    awake_count_ = 0;
+
     // For all vertices without a parent...
     g_->forall_vertices([&](long v) {
         if (parent_[v] >= 0) { return; }

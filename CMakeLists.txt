@@ -63,19 +63,19 @@ add_executable(hybrid_bfs
     hybrid_bfs_main.cc
 )
 
-set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale15")
+set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale12")
 
 add_emusim_test( "build_graph"
-    hybrid_bfs --graph ${TEST_GRAPH} --check_graph
+    hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_graph
 )
 add_emusim_test( "bfs_migrating_threads"
-    hybrid_bfs --graph ${TEST_GRAPH} --check_results --alg migrating_threads
+    hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg migrating_threads
 )
 add_emusim_test( "bfs_remote_writes"
-    hybrid_bfs --graph ${TEST_GRAPH} --check_results --alg remote_writes
+    hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg remote_writes
 )
 add_emusim_test( "bfs_beamer_hybrid"
-    hybrid_bfs --graph ${TEST_GRAPH} --check_results --alg beamer_hybrid
+    hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg beamer_hybrid
 )
 
 
