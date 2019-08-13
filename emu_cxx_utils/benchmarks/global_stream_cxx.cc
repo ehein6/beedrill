@@ -1,6 +1,6 @@
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/striped_array.h>
-#include <emu_cxx_utils/transform.h>
+#include <emu_cxx_utils/for_each.h>
 #include <emu_cxx_utils/fill.h>
 #include <emu_cxx_utils/pointer_manipulation.h>
 #include <algorithm>
@@ -32,9 +32,11 @@ struct stream {
 
     void run()
     {
-        parallel::transform(fixed, a_.begin(), a_.end(), b_.begin(), c_.begin(),
-            [](long a, long b) { return a + b; }
-        );
+        parallel::for_each(fixed, a_.begin(), a_.end(), [&] (long& a) {
+            // HACK compute index so we can walk over all three arrays at once
+            long i = pmanip::view2to1(&a) - &*a_.begin();
+            c_[i] = a_[i] + b_[i];
+        });
     }
 
     void validate()

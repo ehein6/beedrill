@@ -1,7 +1,7 @@
 #pragma once
 
 #include <algorithm>
-
+#include <cilk/cilk.h>
 #include "execution_policy.h"
 #include "pointer_manipulation.h"
 
@@ -88,10 +88,10 @@ striped_for_each(
         // 2. Advance to the first element on the nth nodelet
         // 3. Convert from view-2 to view-1
         // 4. Construct Iterator from raw pointer
-        Iterator stripe_begin = pmanip::view2to1(&*(begin) + nlet);
+        auto stripe_begin = Iterator(pmanip::view2to1(&*(begin) + nlet));
         // Now that the pointer is view-1, we are addressing only the
         // elements on the nth nodelet
-        Iterator stripe_end = stripe_begin + stripe_size;
+        auto stripe_end = stripe_begin + stripe_size;
         // Distribute remainder among first few nodelets
         if (nlet < stripe_remainder) { stripe_end += 1; }
         // Spawn a thread to handle each stripe
@@ -125,7 +125,7 @@ for_each(
     ExecutionPolicy policy,
     Iterator begin, Iterator end, UnaryFunction worker
 ){
-    if (pmanip::is_striped(*&begin)) {
+    if (pmanip::is_striped(&*begin)) {
         detail::striped_for_each(policy, begin, end, worker);
     } else {
         detail::for_each(policy, begin, end, worker);
