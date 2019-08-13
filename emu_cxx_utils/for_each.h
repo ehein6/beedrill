@@ -81,14 +81,12 @@ striped_for_each(
     auto stripe_size = size / NODELETS();
     // How many nodelets have an extra element?
     auto stripe_remainder = size % NODELETS();
-
     // Spawn a thread on each nodelet:
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
         // 1. Convert from iterator to raw pointer
         // 2. Advance to the first element on the nth nodelet
         // 3. Convert from view-2 to view-1
-        // 4. Construct Iterator from raw pointer
-        auto stripe_begin = Iterator(pmanip::view2to1(&*(begin) + nlet));
+        auto stripe_begin = pmanip::view2to1(&*(begin) + nlet);
         // Now that the pointer is view-1, we are addressing only the
         // elements on the nth nodelet
         auto stripe_end = stripe_begin + stripe_size;
