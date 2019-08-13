@@ -53,12 +53,15 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
 endif()
 
 include_directories(.)
-
-add_executable(hybrid_bfs
+add_library(graph STATIC
     graph.h
     graph.cc
     dist_edge_list.h
     dist_edge_list.cc
+)
+link_libraries(graph)
+
+add_executable(hybrid_bfs
     ack_control.h
     sliding_queue.h
     bitmap.h
@@ -82,13 +85,7 @@ add_emusim_test( "bfs_beamer_hybrid"
     hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg beamer_hybrid
 )
 
-
 add_executable(triangle_count
-   graph.h
-   graph.cc
-   dist_edge_list.h
-   dist_edge_list.cc
-   ack_control.h
    tc.h
    tc.cc
    tc_main.cc
@@ -97,5 +94,3 @@ add_executable(triangle_count
 add_emusim_test( "triangle_count"
     triangle_count.mwx --graph ${TEST_GRAPH} --check_results
 )
-
-
