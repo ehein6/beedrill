@@ -3,8 +3,8 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/striped_array.h>
+#include <emu_cxx_utils/pointer_manipulation.h>
 #include <emu_cxx_utils/for_each.h>
-#include <emu_cxx_utils/striped_for_each.h>
 
 #include "common.h"
 #include "dist_edge_list.h"
@@ -89,55 +89,55 @@ public:
         return vertex_out_neighbors_[vertex_id];
     }
 
-    bool
-    out_edge_exists(long src, long dst) {
-        // Find the edge block that would contain this neighbor
-        long *edges_begin = vertex_out_neighbors_[src];
-        long *edges_end = edges_begin + vertex_out_degree_[src];;
-
-        // Search for the neighbor
-        // TODO replace with std::find
-        for (long *e = edges_begin; e < edges_end; ++e) {
-            assert(*e >= 0);
-            assert(*e < num_vertices_);
-            if (*e == dst) { return true; }
-        }
-
-        // Neighbor not found
-        return false;
-    }
-
-    // Map a function to all vertices in parallel, using the specified policy
-    template<class Policy, class Function>
-    void forall_vertices(Policy policy, Function worker) {
-        emu::parallel::for_each(policy,
-            vertex_out_degree_.begin(), vertex_out_degree_.end(),
-            [&](long &degree) {
-                // Compute index in table from the pointer
-                long vertex_id = &degree - vertex_out_degree_.begin();
-                worker(vertex_id);
-            }
-        );
-    }
-
-    template<class Function>
-    void forall_vertices(Function worker) {
-        forall_vertices(emu::execution::default_policy, worker);
-    }
-
+    // TODO: more complex edge list data structures will require something
+    // fancier than a pointer
     using edge_iterator = long*;
+    using const_edge_iterator = const long*;
 
     edge_iterator
     out_edges_begin(long src)
     {
-        // Find the edge list for this vertex
         return vertex_out_neighbors_[src];
     }
 
     edge_iterator
     out_edges_end(long src)
     {
-        return out_edges_begin(src) + vertex_out_degree_[src];
+        return out_edges_begin(src) + out_degree(src);
+    }
+
+    // Convenience functions for mapping over edges/vertices
+
+    // Map a function to all vertices in parallel, using the specified policy
+    template<class Policy, class Function>
+    void for_each_vertex(Policy policy, Function worker)
+    {
+        emu::parallel::for_each(policy,
+            vertex_out_degree_.begin(), vertex_out_degree_.end(),
+            [&](long &degree) {
+                // HACK Compute index in table from the pointer
+                long vertex_id =
+                    emu::pmanip::view1to2(&degree) - vertex_out_degree_.begin();
+                worker(vertex_id);
+            }
+        );
+    }
+
+    template<class Function>
+    void for_each_vertex(Function worker) {
+        for_each_vertex(emu::execution::default_policy, worker);
+    }
+
+    template<class Policy, class Function>
+    void for_each_out_edge(Policy policy, long src, Function worker)
+    {
+        // Spawn threads over the range according to the specified policy
+        emu::parallel::for_each(
+            policy, out_edges_begin(src), out_edges_end(src),
+            [&](long dst) {
+                worker(src, dst);
+            }
+        );
     }
 
     template<class Compare>
@@ -145,26 +145,18 @@ public:
     sort_edge_lists(Compare comp)
     {
         hooks_region_begin("sort_edge_lists");
-        forall_vertices([&](long v){
+        for_each_vertex([&](long v){
             std::sort(out_edges_begin(v), out_edges_end(v), comp);
         });
         hooks_region_end();
     }
 
-
-    /**
-     * Map a function in parallel across all neighbors of vertex @c vertex_id
-     *
-     * @tparam F Prototype is void (*worker)(long destination_vertex_id, args...)
-     * @param src Vertex
-     * @param grain Minimum number of neighbors to give to each thread
-     * @param worker Worker function, will be called on each neighbor
-     */
     template<class Policy, class Function>
-    void forall_out_neighbors(Policy policy, long src, Function worker)
+    void find_out_edge_if(Policy policy, long src, Function worker)
     {
         // Spawn threads over the range according to the specified policy
-        emu::parallel::for_each(policy, out_edges_begin(src), out_edges_end(src),
+        emu::parallel::for_each(
+            policy, out_edges_begin(src), out_edges_end(src),
             [&](long dst) {
                 worker(src, dst);
             }
@@ -172,8 +164,8 @@ public:
     }
 
     template<class Function>
-    void forall_out_neighbors(long src, Function worker)
+    void for_each_out_edge(long src, Function worker)
     {
-        forall_out_neighbors(emu::execution::default_policy, src, worker);
+        for_each_out_edge(emu::execution::default_policy, src, worker);
     }
 };

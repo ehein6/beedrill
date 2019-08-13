@@ -20,17 +20,29 @@ grab_edges(long * volatile * ptr, long num_edges)
     return (long*)ATOMIC_ADDMS((volatile long *)ptr, num_edges * sizeof(long));
 }
 
+bool
+out_edge_exists(graph& g, long src, long dst)
+{
+    return g.out_edges_end(src) != std::find_if(
+        g.out_edges_begin(src), g.out_edges_end(src), [&](long e) {
+            assert(e >= 0);
+            assert(e < g.num_vertices());
+            return e == dst;
+        }
+    );
+}
+
 // Compare the edge list with the constructed graph
 // VERY SLOW, use only for testing
 bool
 graph::check(dist_edge_list &dist_el) {
     long ok = 1;
     dist_el.forall_edges([&] (long src, long dst) {
-        if (!out_edge_exists(src, dst)) {
+        if (!out_edge_exists(*this, src, dst)) {
             LOG("Missing out edge for %li->%li\n", src, dst);
             ok = 0;
         }
-        if (!out_edge_exists(dst, src)) {
+        if (!out_edge_exists(*this, dst, src)) {
             LOG("Missing out edge for %li->%li\n", src, dst);
             ok = 0;
         }
@@ -66,7 +78,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Counting local edges...\n");
     hooks_region_begin("count_local_edges");
     mw_replicated_init(&g->num_local_edges_, 0);
-    g->forall_vertices([&](long v) {
+    g->for_each_vertex([&](long v) {
         ATOMIC_ADDMS(&g->num_local_edges_, g->vertex_out_degree_[v]);
     });
     hooks_region_end();
@@ -100,7 +112,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // Assign each edge block a position within the big array
     LOG("Carving edge storage...\n");
     hooks_region_begin("carve_edge_storage");
-    g->forall_vertices([&](long v) {
+    g->for_each_vertex([&](long v) {
         // Empty vertices don't need storage
         if (g->vertex_out_degree_[v] > 0) {
             // Local vertices have one edge block on the local nodelet

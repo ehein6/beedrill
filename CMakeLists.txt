@@ -39,8 +39,9 @@ function(add_emusim_test name command)
                 ${command} ${ARGN}
         )
     else()
+        string(REPLACE "\.mwx" "" stripped-cmd ${command})
         # Run the test natively
-        add_test(NAME ${name} COMMAND ${command} ${ARGN})
+        add_test(NAME ${name} COMMAND ${stripped-cmd} ${ARGN})
     endif()
 endfunction()
 

@@ -1,93 +1,135 @@
-//#pragma once
-//
-//#include "execution_policy.h"
-//
-//namespace emu::parallel {
-//
-//// Serial version
-//template<typename Iterator, typename UnaryFunction>
-//void
-//for_each(
-//    emu::execution::sequenced_policy,
-//    Iterator begin, Iterator end, UnaryFunction worker
-//){
-//    for (Iterator i = begin; i != end; ++i) {
-//        worker(*i);
-//    }
-//}
-//
-//// Parallel version
-//template<typename Iterator, typename UnaryFunction>
-//void
-//for_each(
-//    emu::execution::parallel_policy policy,
-//    Iterator begin, Iterator end, UnaryFunction worker
-//){
-//    auto grain = policy.grain_;
-//    auto radix = emu::execution::spawn_radix;
-//    typename std::iterator_traits<Iterator>::difference_type size;
-//
-//    // Recursive spawn
-//    for (;;) {
-//        // Keep looping until there are few enough iterations to spawn serially
-//        size = end - begin;
-//        if (size/grain <= radix) break;
-//        // Cut the range in half
-//        Iterator mid = begin + size/2;
-//        // Spawn a thread to deal with the upper half
-//        cilk_spawn for_each(
-//            policy, mid, end, worker
-//        );
-//        // Shrink range to lower half and repeat
-//        end = mid;
-//    }
-//    if (size > grain) {
-//        // Serial spawn
-//        for (Iterator first = begin; first < end; first += grain) {
-//            Iterator last = first + grain <= end ? first + grain : end;
-//            cilk_spawn for_each(
-//                execution::seq,
-//                first, last, worker
-//            );
-//        }
-//    } else {
-//        // Serial execution
-//        for_each(
-//            execution::seq,
-//            begin, end, worker
-//        );
-//    }
-//}
-//
-//
-//// Limited parallel version
-//template<typename Iterator, typename UnaryFunction>
-//void
-//for_each(
-//    emu::execution::parallel_limited_policy policy,
-//    Iterator begin, Iterator end, UnaryFunction worker
-//){
-//    // Recalculate grain size to limit thread count
-//    auto grain = emu::execution::limit_grain(
-//        policy.grain_,
-//        end-begin,
-//        emu::execution::threads_per_nodelet
-//    );
-//    // Forward to unlimited parallel version
-//    for_each(
-//        emu::execution::parallel_policy(grain),
-//        begin, end, worker
-//    );
-//}
-//
-//// Default, forwards to parallel limited impl
-//template<typename Iterator, typename UnaryFunction>
-//void
-//for_each(
-//    Iterator begin, Iterator end, UnaryFunction worker
-//){
-//    emu::parallel::for_each(emu::execution::par_limit, begin, end, worker);
-//}
-//
-//
-//} // end namespace emu::parallel
+#pragma once
+
+#include <algorithm>
+
+#include "execution_policy.h"
+#include "pointer_manipulation.h"
+
+namespace emu::parallel {
+namespace detail {
+
+// Serial version
+template<class Iterator, class UnaryFunction>
+void
+for_each(
+    execution::sequenced_policy,
+    Iterator begin, Iterator end, UnaryFunction worker
+) {
+    // Forward to standard library implementation
+    std::for_each(begin, end, worker);
+}
+
+// Parallel version
+template<class Iterator, class UnaryFunction>
+void
+for_each(
+    execution::parallel_policy policy,
+    Iterator begin, Iterator end,
+    UnaryFunction worker
+) {
+    // Serial spawn over each granule
+    auto grain = policy.grain_;
+    for (; begin < end; begin += grain) {
+        // Spawn a thread to handle each granule
+        // Last iteration may be smaller if things don't divide evenly
+        auto last = begin + grain <= end ? begin + grain : end;
+        cilk_spawn_at(&*begin) for_each(
+            execution::seq,
+            begin, last, worker
+        );
+    }
+}
+
+// Parallel fixed version
+template<class Iterator, class UnaryFunction>
+void
+for_each(
+    execution::parallel_fixed_policy policy,
+    Iterator begin, Iterator end, UnaryFunction worker
+) {
+    // Recalculate grain size to limit thread count
+    // and forward to unlimited parallel version
+    for_each(
+        execution::compute_fixed_grain(policy, begin, end),
+        begin, end, worker
+    );
+}
+
+// Serial version for striped layouts
+template<class Iterator, class UnaryFunction>
+void
+striped_for_each(
+    execution::sequenced_policy,
+    Iterator begin, Iterator end, UnaryFunction worker
+) {
+    // Forward to standard library implementation
+    // TODO we could save migrations by doing it one stripe at a time
+    std::for_each(begin, end, worker);
+}
+
+// Parallel version for striped layouts
+template<class Iterator, class UnaryFunction>
+void
+striped_for_each(
+    execution::parallel_policy policy,
+    Iterator begin, Iterator end,
+    UnaryFunction worker
+) {
+    // Total number of elements
+    auto size = end - begin;
+    // Number of elements in each range
+    auto stripe_size = size / NODELETS();
+    // How many nodelets have an extra element?
+    auto stripe_remainder = size % NODELETS();
+
+    // Spawn a thread on each nodelet:
+    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+        // 1. Convert from iterator to raw pointer
+        // 2. Advance to the first element on the nth nodelet
+        // 3. Convert from view-2 to view-1
+        // 4. Construct Iterator from raw pointer
+        Iterator stripe_begin = pmanip::view2to1(&*(begin) + nlet);
+        // Now that the pointer is view-1, we are addressing only the
+        // elements on the nth nodelet
+        Iterator stripe_end = stripe_begin + stripe_size;
+        // Distribute remainder among first few nodelets
+        if (nlet < stripe_remainder) { stripe_end += 1; }
+        // Spawn a thread to handle each stripe
+        cilk_spawn_at(&*stripe_begin) for_each(
+            policy, stripe_begin, stripe_end, worker
+        );
+    }
+}
+
+// Parallel fixed for striped layouts
+template<class Iterator, class UnaryFunction>
+void
+striped_for_each(
+    execution::parallel_fixed_policy policy,
+    Iterator begin, Iterator end, UnaryFunction worker
+) {
+    // Recalculate grain size to limit thread count
+    // and forward to unlimited parallel version
+    striped_for_each(
+        execution::compute_fixed_grain(policy, begin, end),
+        begin, end, worker
+    );
+}
+
+} // end namespace detail
+
+
+template<class ExecutionPolicy, class Iterator, class UnaryFunction>
+void
+for_each(
+    ExecutionPolicy policy,
+    Iterator begin, Iterator end, UnaryFunction worker
+){
+    if (pmanip::is_striped(*&begin)) {
+        detail::striped_for_each(policy, begin, end, worker);
+    } else {
+        detail::for_each(policy, begin, end, worker);
+    }
+}
+
+} // end namespace emu::parallel

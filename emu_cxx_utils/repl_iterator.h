@@ -13,50 +13,39 @@ extern "C" {
 
 namespace emu {
 
-/**
- * Iterator for striped_array
- * If use_nodelet_stride is false, then this class behaves exactly like a pointer
- * If use_nodelet_stride is true, then the iterator moves in steps of NODELETS()
- *
- * @tparam I Underlying pointer to value_type
- * @tparam use_nodelet_stride Advance pointer by NODELETS() when true
- */
-template<typename I>
-class stride_iterator
+template<typename T>
+class repl_iterator
 {
 public:
     // TODO Typedef to allow converting between striped/sequential versions
     // Standard iterator typedefs for interop with C++ algorithms
-    typedef stride_iterator self_type;
-    typedef typename std::iterator_traits<I>::iterator_category iterator_category;
-    typedef typename std::iterator_traits<I>::value_type value_type;
-    typedef typename std::iterator_traits<I>::difference_type difference_type;
-    typedef typename std::iterator_traits<I>::pointer pointer;
-    typedef typename std::iterator_traits<I>::reference reference;
+    typedef repl_iterator self_type;
+    typedef typename std::iterator_traits<T*>::iterator_category iterator_category;
+    typedef typename std::iterator_traits<T*>::value_type value_type;
+    typedef typename std::iterator_traits<T*>::difference_type difference_type;
+    typedef typename std::iterator_traits<T*>::pointer pointer;
+    typedef typename std::iterator_traits<T*>::reference reference;
 private:
-    // The wrapped iterator type
-    I it;
-    // The amount to add on each increment
-    difference_type stride;
+    // The pointer
+    T* ptr_;
 public:
 
-    stride_iterator(I it, difference_type stride=1) : it(it), stride(stride) {}
-
-    self_type stretch() {
-        return stride_iterator(it, stride*2);
+    repl_iterator(T& ref) : ptr_(&ref)
+    {
+        assert(pmanip::get_view(ptr_) == 1);
     }
 
-    reference  operator*()                      { return *it; }
-    reference  operator*() const                { return *it; }
-    pointer    operator->()                     { return it; }
-    pointer    operator->() const               { return it; }
-    reference  operator[](difference_type i)    { return *(this + i); } // FIXME can we use 'this' like this?
+    reference  operator*()                      { return *ptr_; }
+    reference  operator*() const                { return *ptr_; }
+    pointer    operator->()                     { return ptr_; }
+    pointer    operator->() const               { return ptr_; }
+    reference  operator[](difference_type i)    { return emu::pmanip::get_nth(ptr_, i); }
 
     // This is the magic, incrementing a striped iterator moves you forward by 'stride' elements
     // All the other operators are boilerplate.
     self_type& operator+=(difference_type n)
     {
-        it += n * stride;
+        pmanip::change_nodelet(ptr_, n);
         return *this;
     }
     self_type& operator-=(difference_type n)    { return operator+=(-n); }
@@ -113,9 +102,27 @@ public:
     friend difference_type
     operator- (const self_type& lhs, const self_type& rhs)
     {
-        assert(lhs.stride == rhs.stride);
-        return (lhs.it - rhs.it) / lhs.stride;
+        // TODO extract nlet numbers and subtract
+        return 0;
     }
 };
+
+template<class T>
+repl_iterator 
+repl_begin(T& ref) 
+{
+    assert(pmanip::is_repl(&ref));
+    return repl_iterator<T>(pmanip::get_nth(0));
+}
+
+template<class T>
+repl_iterator
+repl_end(T& ref)
+{
+    assert(pmanip::is_repl(&ref));
+    // This is an invalid pointer, it points past the end of the
+    // last nodelet. Must be used only for comparison, never dereferenced.
+    return repl_iterator<T>(pmanip::get_nth(NODELETS()));
+}
 
 } // end namespace emu

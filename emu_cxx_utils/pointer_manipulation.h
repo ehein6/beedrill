@@ -4,8 +4,15 @@
 #include <pmanip.h>
 #endif
 
+/**
+ * Raw pointer manipulation
+ *
+ */
 namespace emu::pmanip {
 
+/**
+ * Returns the view number of a raw pointer
+ */
 template <typename T>
 unsigned get_view(const T * ptr)
 {
@@ -16,6 +23,9 @@ unsigned get_view(const T * ptr)
 #endif
 }
 
+/**
+ * Determines whether a raw pointer is replicated (view-0)
+ */
 template<typename T>
 bool is_repl(const T * ptr){
 #ifdef __le64__
@@ -25,6 +35,9 @@ bool is_repl(const T * ptr){
 #endif
 }
 
+/**
+ * Determines whether a raw pointer is striped (view-2 or higher)
+ */
 template<typename T>
 bool is_striped(const T * ptr){
 #ifdef __le64__
@@ -33,6 +46,41 @@ bool is_striped(const T * ptr){
     return false;
 #endif
 }
+
+/**
+ * Returns the nodelet number from a pointer
+ * Result is undefined if view != 1
+ */
+template <typename T>
+T * get_nodelet(T * ptr)
+{
+#ifdef __le64__
+    return mw_ptrtonodelet(ptr);
+#else
+    return 0;
+#endif
+}
+
+template <typename T>
+T * view2to1(T * ptr)
+{
+#ifdef __le64__
+    return mw_ptr2to1(ptr);
+#else
+    return ptr;
+#endif
+}
+
+template <typename T>
+T * view1to2(T * ptr)
+{
+#ifdef __le64__
+    return mw_ptr1to2(ptr);
+#else
+    return ptr;
+#endif
+}
+
 
 template <typename T>
 T * get_nth(T * repladdr, long n)

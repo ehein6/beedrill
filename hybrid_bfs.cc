@@ -1,8 +1,11 @@
 #include "hybrid_bfs.h"
 #include "ack_control.h"
 
-//#include <emu_cxx_utils/for_each.h>
-#include <emu_cxx_utils/striped_for_each.h>
+#include <emu_cxx_utils/execution_policy.h>
+#include <emu_cxx_utils/for_each.h>
+
+using namespace emu;
+using namespace emu::execution;
 
 hybrid_bfs::hybrid_bfs(graph & g)
 : g_(&g)
@@ -40,7 +43,7 @@ hybrid_bfs::top_down_step_with_remote_writes()
     // For each vertex in the queue...
     queue_.forall_items([&](long v) {
         // for each neighbor of that vertex...
-        g_->forall_out_neighbors(v, [&](long src, long dst) {
+        g_->for_each_out_edge(v, [&](long src, long dst) {
             // write the vertex ID to the neighbor's new_parent entry.
             new_parent_[dst] = src; // Remote write
         });
@@ -49,7 +52,7 @@ hybrid_bfs::top_down_step_with_remote_writes()
 
     // Add to the queue all vertices that didn't have a parent before
     scout_count_ = 0;
-    g_->forall_vertices([&](long v) {
+    g_->for_each_vertex([&](long v) {
         if (parent_[v] < 0 && new_parent_[v] >= 0) {
             // Update count with degree of new vertex
             REMOTE_ADD(&scout_count_, -parent_[v]);
@@ -100,7 +103,7 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     scout_count_ = 0;
     queue_.forall_items([&](long v) {
         // for each neighbor of that vertex...
-        g_->forall_out_neighbors(v, [&](long src, long dst) {
+        g_->for_each_out_edge(v, [&](long src, long dst) {
             // Look up the parent of the vertex we are visiting
             long * parent = &parent_[dst];
             long curr_val = *parent;
@@ -134,21 +137,22 @@ hybrid_bfs::bottom_up_step()
     awake_count_ = 0;
 
     // For all vertices without a parent...
-    g_->forall_vertices([&](long v) {
+    g_->for_each_vertex([&](long v) {
         if (parent_[v] >= 0) { return; }
         // Look for neighbors who are in the frontier
-        g_->forall_out_neighbors(emu::execution::seq, v, [&](long child, long parent) {
+        g_->find_out_edge_if(seq, v, [&](long child, long parent) {
             // If the neighbor is in the frontier...
             if (parent_[parent] >= 0) {
                 // Claim as a parent
                 new_parent_[child] = parent;
-                // TODO No need to keep looking for a parent
-            }
+                // No need to keep looking for a parent
+                return true;
+            } else return false;
         });
     });
 
     // Add to the queue all vertices that didn't have a parent before
-    g_->forall_vertices([&](long v) {
+    g_->for_each_vertex([&](long v) {
         if (parent_[v] < 0 && new_parent_[v] >= 0) {
             // Set parent
             parent_[v] = new_parent_[v];
@@ -421,7 +425,7 @@ long
 hybrid_bfs::count_num_traversed_edges()
 {
     auto sum = emu::make_repl<long>(0);
-    g_->forall_vertices([&] (long v) {
+    g_->for_each_vertex([&] (long v) {
         if (parent_[v] >= 0) {
             REMOTE_ADD(&sum->get(), g_->out_degree(v));
         }
@@ -452,7 +456,7 @@ hybrid_bfs::dump_queue_stats()
 void
 hybrid_bfs::clear()
 {
-    g_->forall_vertices([&](long v) {
+    g_->for_each_vertex([&](long v) {
         long out_degree = g_->out_degree(v);
         parent_[v] = out_degree != 0 ? -out_degree : -1;
         new_parent_[v] = -1;

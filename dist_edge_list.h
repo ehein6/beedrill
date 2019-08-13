@@ -3,7 +3,7 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/replicated.h>
-#include <emu_cxx_utils/striped_for_each.h>
+#include <emu_cxx_utils/for_each.h>
 #include "common.h"
 
 // Distributed edge list that the graph will be created from.

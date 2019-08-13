@@ -56,7 +56,7 @@ triangle_count::count_triangles(long u)
 long
 triangle_count::run()
 {
-    g_->forall_vertices(fixed, [&](long u){ count_triangles(u); });
+    g_->for_each_vertex(fixed, [&](long u){ count_triangles(u); });
     return repl_reduce(num_triangles_, std::plus<>());
 }
 
