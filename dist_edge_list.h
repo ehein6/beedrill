@@ -53,7 +53,8 @@ struct dist_edge_list
     {
         emu::parallel::for_each(policy, src_.begin(), src_.end(),
             [&](long& src) {
-                long i = &src - src_.begin();
+                // HACK Compute index in table from the pointer
+                long i = emu::pmanip::view1to2(&src) - src_.begin();
                 long dst = dst_[i];
                 worker(src, dst);
             }
