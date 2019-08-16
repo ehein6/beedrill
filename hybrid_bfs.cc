@@ -103,7 +103,7 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     scout_count_ = 0;
     queue_.forall_items([&](long v) {
         // for each neighbor of that vertex...
-        g_->for_each_out_edge(v, [&](long src, long dst) {
+        g_->for_each_out_edge(parallel_policy(64), v, [&](long src, long dst) {
             // Look up the parent of the vertex we are visiting
             long * parent = &parent_[dst];
             long curr_val = *parent;
