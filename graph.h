@@ -116,8 +116,7 @@ public:
             vertex_out_degree_.begin(), vertex_out_degree_.end(),
             [&](long &degree) {
                 // HACK Compute index in table from the pointer
-                long vertex_id =
-                    emu::pmanip::view1to2(&degree) - vertex_out_degree_.begin();
+                long vertex_id = &degree - vertex_out_degree_.begin();
                 worker(vertex_id);
             }
         );

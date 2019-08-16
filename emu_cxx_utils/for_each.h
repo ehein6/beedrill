@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cilk/cilk.h>
 #include "execution_policy.h"
+#include "stride_iterator.h"
 #include "pointer_manipulation.h"
 
 namespace emu::parallel {
@@ -85,10 +86,11 @@ striped_for_each(
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
         // 1. Convert from iterator to raw pointer
         // 2. Advance to the first element on the nth nodelet
-        // 3. Convert from view-2 to view-1
-        auto stripe_begin = pmanip::view2to1(&*(begin) + nlet);
-        // Now that the pointer is view-1, we are addressing only the
-        // elements on the nth nodelet
+        // 3. Convert to striped iterator
+        auto stripe_begin = stride_iterator<Iterator>(
+            &*(begin) + nlet, NODELETS());
+        // Now that the pointer has stride NODELETS(), we are addressing only
+        // the elements on the nth nodelet
         auto stripe_end = stripe_begin + stripe_size;
         // Distribute remainder among first few nodelets
         if (nlet < stripe_remainder) { stripe_end += 1; }
