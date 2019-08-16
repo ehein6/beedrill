@@ -143,7 +143,7 @@ striped_for_each(
         // 2. Advance to the first element on the nth nodelet
         // 3. Convert to striped iterator
         auto stripe_begin = stride_iterator<Iterator>(
-            &*(begin) + nlet, NODELETS());
+            begin + nlet, NODELETS());
         // Now that the pointer has stride NODELETS(), we are addressing only
         // the elements on the nth nodelet
         auto stripe_end = stripe_begin + stripe_size;
