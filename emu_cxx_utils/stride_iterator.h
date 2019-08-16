@@ -24,9 +24,9 @@ public:
 private:
     // The wrapped iterator type
     I it;
+public:
     // The amount to add on each increment
     difference_type stride;
-public:
 
     stride_iterator(I it, difference_type stride=1) : it(it), stride(stride) {}
 
