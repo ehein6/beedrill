@@ -132,10 +132,7 @@ public:
     {
         // Spawn threads over the range according to the specified policy
         emu::parallel::for_each(
-            policy, out_edges_begin(src), out_edges_end(src),
-            [&](long dst) {
-                worker(src, dst);
-            }
+            policy, out_edges_begin(src), out_edges_end(src), worker
         );
     }
 
@@ -155,10 +152,7 @@ public:
     {
         // Spawn threads over the range according to the specified policy
         emu::parallel::for_each(
-            policy, out_edges_begin(src), out_edges_end(src),
-            [&](long dst) {
-                worker(src, dst);
-            }
+            policy, out_edges_begin(src), out_edges_end(src), worker
         );
     }
 

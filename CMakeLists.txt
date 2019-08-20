@@ -94,3 +94,13 @@ add_executable(triangle_count
 add_emusim_test( "triangle_count"
     triangle_count.mwx --graph ${TEST_GRAPH} --check_results
 )
+
+add_executable(pagerank
+   pagerank.h
+   pagerank.cc
+   pagerank_main.cc
+)
+
+add_emusim_test( "pagerank"
+    pagerank.mwx --graph ${TEST_GRAPH} --check_results
+)

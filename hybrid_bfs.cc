@@ -41,9 +41,9 @@ hybrid_bfs::top_down_step_with_remote_writes()
 {
     ack_control_disable_acks();
     // For each vertex in the queue...
-    queue_.forall_items([&](long v) {
+    queue_.forall_items([&](long src) {
         // for each neighbor of that vertex...
-        g_->for_each_out_edge(v, [&](long src, long dst) {
+        g_->for_each_out_edge(src, [&](long dst) {
             // write the vertex ID to the neighbor's new_parent entry.
             new_parent_[dst] = src; // Remote write
         });
@@ -101,9 +101,9 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     // Spawn a thread on each nodelet to process the local queue
     // For each neighbor without a parent, add self as parent and append to queue
     scout_count_ = 0;
-    queue_.forall_items([&](long v) {
+    queue_.forall_items([&](long src) {
         // for each neighbor of that vertex...
-        g_->for_each_out_edge(parallel_policy(64), v, [&](long src, long dst) {
+        g_->for_each_out_edge(parallel_policy(64), src, [&](long dst) {
             // Look up the parent of the vertex we are visiting
             long * parent = &parent_[dst];
             long curr_val = *parent;
@@ -137,18 +137,18 @@ hybrid_bfs::bottom_up_step()
     awake_count_ = 0;
 
     // For all vertices without a parent...
-    g_->for_each_vertex([&](long v) {
-        if (parent_[v] >= 0) { return; }
+    g_->for_each_vertex([&](long child) {
+        if (parent_[child] >= 0) { return; }
         // Look for neighbors who are in the frontier
-        g_->find_out_edge_if(seq, v, [&](long child, long parent) {
-            // If the neighbor is in the frontier...
-            if (parent_[parent] >= 0) {
-                // Claim as a parent
-                new_parent_[child] = parent;
-                // No need to keep looking for a parent
-                return true;
-            } else return false;
-        });
+        parallel::for_each(seq, g_->out_edges_begin(child), g_->out_edges_end(child),
+            [&](long parent) {
+                // If the neighbor is in the frontier...
+                if (parent_[parent] >= 0) {
+                    // Claim as a parent
+                    new_parent_[child] = parent;
+                }
+            }
+        );
     });
 
     // Add to the queue all vertices that didn't have a parent before

@@ -20,5 +20,13 @@ atomic_addms(T * volatile * ptr, ptrdiff_t value)
     return (T*)ATOMIC_ADDMS((volatile long*)ptr, (long)value);
 }
 
+template<class T>
+inline T
+atomic_cas(T volatile * ptr, T oldval, T newval)
+{
+    static_assert(sizeof(T) == 8, "ATOMIC_CAS requires 64-bit type");
+    return (T)ATOMIC_CAS((volatile long*)ptr, (long)oldval, (long)newval);
+}
+
 //TODO implement all remotes/atomics
 };

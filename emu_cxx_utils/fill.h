@@ -12,4 +12,11 @@ fill(Policy&& policy, Iterator first, Iterator last, const T& value)
     );
 }
 
+template<typename Iterator, typename T>
+void
+fill(Iterator first, Iterator last, const T& value)
+{
+    fill(execution::default_policy, first, last, value);
+}
+
 }
