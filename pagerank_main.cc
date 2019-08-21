@@ -175,7 +175,7 @@ int main(int argc, char ** argv)
         double time_ms = hooks_region_end();
         if (args.check_results) {
             LOG("Checking results...\n");
-            if (pr->check()) {
+            if (pr->check(args.damping, args.epsilon)) {
                 LOG("PASS\n");
             } else {
                 LOG("FAIL\n");

@@ -1,5 +1,5 @@
 #include "pagerank.h"
-
+#include <vector>
 #include <emu_cxx_utils/execution_policy.h>
 #include <emu_cxx_utils/for_each.h>
 #include <emu_cxx_utils/fill.h>
@@ -46,17 +46,18 @@ pagerank::run (int max_iters, double damping, double epsilon)
     double base_score = (1.0 - damping) / g_->num_vertices();
     parallel::fill(scores_.begin(), scores_.end(), init_score);
     for (int iter = 0; iter < max_iters; ++iter) {
-        error_ = 0;
+        double error_ = 0;
 
-        g_->for_each_vertex([&](long v) {
+        g_->for_each_vertex(seq, [&](long v) {
             // Compute outgoing contribution for each vertex
             contrib_[v] = scores_[v] / g_->out_degree(v);
         });
 
-        g_->for_each_vertex([&](long src) {
+        g_->for_each_vertex(seq, [&](long src) {
             // Sum incoming contribution from all my neighbors
             double incoming = 0;
-            g_->for_each_out_edge(src, [&](long dst) {
+            g_->for_each_out_edge(seq, src, [&](long dst) {
+                // LOG("%li <- %li: %3.2f\n", src, dst, contrib_[dst]);
                 incoming += contrib_[dst];
             });
             // Update my score, combining old score and new
@@ -66,7 +67,8 @@ pagerank::run (int max_iters, double damping, double epsilon)
             // Uses our special operator overload
             error_ += fabs(scores_[src] - old_score);
         });
-        double err = emu::repl_reduce(error_, std::plus<>());
+        // double err = emu::repl_reduce(error_, std::plus<>());
+        double err = error_;
         printf(" %2d    %lf\n", iter, err);
         if (err < epsilon)
             break;
@@ -79,7 +81,22 @@ pagerank::clear()
 }
 
 bool
-pagerank::check()
+pagerank::check(double damping, double target_error)
 {
-    return false;
+  double base_score = (1.0 - damping) / g_->num_vertices();
+  std::vector<double> incoming_sums(g_->num_vertices(), 0);
+  double error = 0;
+  g_->for_each_vertex(seq, [&](long u){
+    double outgoing_contrib = scores_[u] / g_->out_degree(u);
+    g_->for_each_out_edge(seq, u, [&](long v) {
+      incoming_sums[v] += outgoing_contrib;
+    });
+  });
+
+  g_->for_each_vertex(seq, [&](long n){
+    error += fabs(base_score + damping * incoming_sums[n] - scores_[n]);
+    incoming_sums[n] = 0;
+  });
+
+  return error < target_error;
 }

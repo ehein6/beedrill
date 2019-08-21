@@ -9,9 +9,9 @@ private:
     // PageRank value for each vertex
     emu::striped_array<double> scores_;
     // Outgoing contribution from each vertex
-    emu::striped_array<long> contrib_;
+    emu::striped_array<double> contrib_;
     // Accumulates error from each step
-    emu::repl<double> error_;
+    // emu::repl<double> error_;
 
 public:
     explicit pagerank(graph & g);
@@ -19,5 +19,5 @@ public:
 
     void run (int max_iters, double damping, double epsilon);
     void clear();
-    bool check();
+    bool check(double damping, double epsilon);
 };
