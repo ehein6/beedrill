@@ -12,14 +12,15 @@ pagerank::pagerank(graph & g)
 : g_(&g)
 , scores_(g.num_vertices())
 , contrib_(g.num_vertices())
-{
-}
+, error_(0)
+{}
 
 // Shallow copy constructor
 pagerank::pagerank(const pagerank& other, emu::shallow_copy tag)
 : g_(other.g_)
 , scores_(other.scores_, tag)
 , contrib_(other.contrib_, tag)
+, error_(other.error_)
 {}
 
 // Allows us to add to a replicated double
@@ -46,7 +47,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
     double base_score = (1.0 - damping) / g_->num_vertices();
     parallel::fill(scores_.begin(), scores_.end(), init_score);
     for (int iter = 0; iter < max_iters; ++iter) {
-        double error_ = 0;
+        error_ = 0;
 
         g_->for_each_vertex(seq, [&](long v) {
             // Compute outgoing contribution for each vertex
@@ -57,7 +58,6 @@ pagerank::run (int max_iters, double damping, double epsilon)
             // Sum incoming contribution from all my neighbors
             double incoming = 0;
             g_->for_each_out_edge(seq, src, [&](long dst) {
-                // LOG("%li <- %li: %3.2f\n", src, dst, contrib_[dst]);
                 incoming += contrib_[dst];
             });
             // Update my score, combining old score and new
@@ -67,8 +67,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             // Uses our special operator overload
             error_ += fabs(scores_[src] - old_score);
         });
-        // double err = emu::repl_reduce(error_, std::plus<>());
-        double err = error_;
+        double err = emu::repl_reduce(error_, std::plus<>());
         printf(" %2d    %lf\n", iter, err);
         if (err < epsilon)
             break;

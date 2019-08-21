@@ -47,8 +47,8 @@ atomic_cas(double volatile * ptr, double oldval, double newval)
 
     retval_p.i = ATOMIC_CAS(
         reinterpret_cast<long volatile*>(ptr),
-        oldval_p.i,
-        newval_p.i
+        newval_p.i,
+        oldval_p.i
     );
     return retval_p.f;
 }
