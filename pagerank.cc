@@ -49,12 +49,12 @@ pagerank::run (int max_iters, double damping, double epsilon)
     for (int iter = 0; iter < max_iters; ++iter) {
         error_ = 0;
 
-        g_->for_each_vertex(seq, [&](long v) {
+        g_->for_each_vertex([&](long v) {
             // Compute outgoing contribution for each vertex
             contrib_[v] = scores_[v] / g_->out_degree(v);
         });
 
-        g_->for_each_vertex(seq, [&](long src) {
+        g_->for_each_vertex([&](long src) {
             // Sum incoming contribution from all my neighbors
             double incoming = 0;
             g_->for_each_out_edge(seq, src, [&](long dst) {
