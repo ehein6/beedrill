@@ -5,6 +5,7 @@
 #include <emu_c_utils/emu_c_utils.h>
 
 using namespace emu;
+using namespace emu::parallel;
 using namespace emu::execution;
 
 triangle_count::triangle_count(graph & g)
@@ -31,7 +32,7 @@ triangle_count::count_triangles(long u)
     // Use binary search to find neighbors of u that are less than u.
     auto v_begin = g_->out_edges_begin(u);
     auto v_end = std::lower_bound(v_begin, g_->out_edges_end(u), u);
-    parallel::for_each(fixed, v_begin, v_end, [&](long v) {
+    for_each(fixed, v_begin, v_end, [&](long v) {
         // At this point we have one side of the triangle, from u to v
         // For each edge v->w, see if we also have u->w to complete the triangle
         // Once again, we limit ourselves to the neighbors of v that are less than v
@@ -40,7 +41,7 @@ triangle_count::count_triangles(long u)
         auto vw_end = std::lower_bound(vw_begin, g_->out_edges_end(v), v);
         // Iterator over edges of u
         auto p_uw = g_->out_edges_begin(u);
-        std::for_each(vw_begin, vw_end, [&](long w){
+        for_each(seq, vw_begin, vw_end, [&](long w){
             // Now we have u->v and v->w
             // Scan through neighbors of u, looking for w
             while (*p_uw < w) { p_uw++; } // TODO this could use lower_bound
@@ -56,7 +57,7 @@ triangle_count::count_triangles(long u)
 long
 triangle_count::run()
 {
-    g_->for_each_vertex(fixed, [&](long u){ count_triangles(u); });
+    g_->for_each_vertex(parallel_policy(1), [&](long u){ count_triangles(u); });
     return repl_reduce(num_triangles_, std::plus<>());
 }
 
