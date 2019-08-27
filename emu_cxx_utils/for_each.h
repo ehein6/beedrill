@@ -178,8 +178,13 @@ striped_for_each(
     auto stripe_size = size / NODELETS();
     // How many nodelets have an extra element?
     auto stripe_remainder = size % NODELETS();
+    auto max_nlet = NODELETS();
+    // We may not spawn a thread on each nodelet if the range is short
+    if (size < max_nlet) {
+        max_nlet = size;
+    }
     // Spawn a thread on each nodelet:
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+    for (long nlet = 0; nlet < max_nlet; ++nlet) {
         // 1. Convert from iterator to raw pointer
         // 2. Advance to the first element on the nth nodelet
         // 3. Convert to striped iterator
@@ -221,7 +226,9 @@ for_each(
     ExecutionPolicy policy,
     Iterator begin, Iterator end, UnaryFunction worker
 ){
-    if (pmanip::is_striped(&*begin)) {
+    if (end-begin == 0) {
+        return;
+    } else if (pmanip::is_striped(&*begin)) {
         detail::striped_for_each(policy, begin, end, worker);
     } else {
         detail::for_each(policy, begin, end, worker);
