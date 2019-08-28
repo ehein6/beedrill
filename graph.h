@@ -114,9 +114,9 @@ public:
     {
         emu::parallel::for_each(policy,
             vertex_out_degree_.begin(), vertex_out_degree_.end(),
-            [&](long &degree) {
+            [worker,degree_begin=vertex_out_degree_.begin()](long &degree) {
                 // HACK Compute index in table from the pointer
-                long vertex_id = &degree - vertex_out_degree_.begin();
+                long vertex_id = &degree - degree_begin;
                 worker(vertex_id);
             }
         );

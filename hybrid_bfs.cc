@@ -139,12 +139,12 @@ hybrid_bfs::bottom_up_step()
 
     class claim_parent
     {
-        hybrid_bfs * bfs_;
-        long child_;
+        hybrid_bfs * const bfs_;
+        const long child_;
     public:
         explicit claim_parent(hybrid_bfs * bfs, long child) : bfs_(bfs), child_(child) {}
 
-        void operator() (long parent)
+        void operator() (long parent) const
         {
             // If the neighbor is in the frontier...
             if (bfs_->parent_[parent] >= 0) {
@@ -156,12 +156,12 @@ hybrid_bfs::bottom_up_step()
 
     class check_neighbors
     {
-        hybrid_bfs * bfs_;
+        hybrid_bfs * const bfs_;
     public:
         explicit check_neighbors(graph* g, hybrid_bfs * bfs)
         : bfs_(bfs) {}
 
-        void operator() (long child)
+        void operator() (long child) const
         {
             if (bfs_->parent_[child] >= 0) { return; }
             // Look for neighbors who are in the frontier
@@ -175,10 +175,11 @@ hybrid_bfs::bottom_up_step()
 
     class populate_next_frontier
     {
-        hybrid_bfs * bfs_;
+        hybrid_bfs * const bfs_;
     public:
         explicit populate_next_frontier(hybrid_bfs * bfs) : bfs_(bfs) {}
-        void operator() (long v) {
+        void operator() (long v) const
+        {
             if (bfs_->parent_[v] < 0 && bfs_->new_parent_[v] >= 0) {
                 // Set parent
                 bfs_->parent_[v] = bfs_->new_parent_[v];
