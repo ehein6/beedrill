@@ -123,6 +123,8 @@ hybrid_bfs::top_down_step_with_migrating_threads()
 }
 
 
+
+
 /**
  * Bottom-up BFS step
  * For each vertex that is not yet a part of the BFS tree,
@@ -134,34 +136,68 @@ hybrid_bfs::top_down_step_with_migrating_threads()
 long
 hybrid_bfs::bottom_up_step()
 {
+
+    class claim_parent
+    {
+        hybrid_bfs * bfs_;
+        long child_;
+    public:
+        explicit claim_parent(hybrid_bfs * bfs, long child) : bfs_(bfs), child_(child) {}
+
+        void operator() (long parent)
+        {
+            // If the neighbor is in the frontier...
+            if (bfs_->parent_[parent] >= 0) {
+                // Claim as a parent
+                bfs_->new_parent_[child_] = parent;
+            }
+        }
+    };
+
+    class check_neighbors
+    {
+        hybrid_bfs * bfs_;
+    public:
+        explicit check_neighbors(graph* g, hybrid_bfs * bfs)
+        : bfs_(bfs) {}
+
+        void operator() (long child)
+        {
+            if (bfs_->parent_[child] >= 0) { return; }
+            // Look for neighbors who are in the frontier
+            parallel::for_each(fixed,
+                bfs_->g_->out_edges_begin(child),
+                bfs_->g_->out_edges_end(child),
+                claim_parent(bfs_, child)
+            );
+        }
+    };
+
+    class populate_next_frontier
+    {
+        hybrid_bfs * bfs_;
+    public:
+        explicit populate_next_frontier(hybrid_bfs * bfs) : bfs_(bfs) {}
+        void operator() (long v) {
+            if (bfs_->parent_[v] < 0 && bfs_->new_parent_[v] >= 0) {
+                // Set parent
+                bfs_->parent_[v] = bfs_->new_parent_[v];
+                // Add to the queue for the next frontier
+                bfs_->queue_.push_back(v);
+                // Track number of vertices woken up in this step
+                REMOTE_ADD(&bfs_->awake_count_, 1);
+            }
+        }
+    };
+
+
     awake_count_ = 0;
 
     // For all vertices without a parent...
-    g_->for_each_vertex([&](long child) {
-        if (parent_[child] >= 0) { return; }
-        // Look for neighbors who are in the frontier
-        parallel::for_each(seq, g_->out_edges_begin(child), g_->out_edges_end(child),
-            [&](long parent) {
-                // If the neighbor is in the frontier...
-                if (parent_[parent] >= 0) {
-                    // Claim as a parent
-                    new_parent_[child] = parent;
-                }
-            }
-        );
-    });
-
+    g_->for_each_vertex(check_neighbors(g_, this));
     // Add to the queue all vertices that didn't have a parent before
-    g_->for_each_vertex([&](long v) {
-        if (parent_[v] < 0 && new_parent_[v] >= 0) {
-            // Set parent
-            parent_[v] = new_parent_[v];
-            // Add to the queue for the next frontier
-            queue_.push_back(v);
-            // Track number of vertices woken up in this step
-            REMOTE_ADD(&awake_count_, 1);
-        }
-    });
+    g_->for_each_vertex(populate_next_frontier(this));
+
     return repl_reduce(awake_count_, std::plus<>());
 }
 

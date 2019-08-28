@@ -8,8 +8,7 @@
 #include "sliding_queue.h"
 
 
-class hybrid_bfs {
-private:
+struct hybrid_bfs {
     emu::repl<graph*> g_;
     // For each vertex, parent in the BFS tree.
     emu::striped_array<long> parent_;
@@ -27,8 +26,6 @@ private:
     long top_down_step_with_remote_writes();
     long top_down_step_with_migrating_threads();
     long bottom_up_step();
-
-public:
 
     void run_with_remote_writes(long source);
     void run_with_migrating_threads(long source);
