@@ -66,57 +66,30 @@ hybrid_bfs::top_down_step_with_remote_writes()
     return emu::repl_reduce(scout_count_, std::plus<>());
 }
 
-
-// Using noinline to minimize the size of the migrating context
-//static __attribute__((always_inline)) inline void
-//frontier_visitor(long src, long * edges_begin, long * edges_end)
-//{
-//    long e1, e2, e3, e4;
-//
-//    // Visit neighbors one at a time until remainder is evenly divisible by four
-//    while ((edges_end - edges_begin) % 4 != 0) {
-//        visit(src, *edges_begin++);
-//    }
-//
-//    for (long * e = edges_begin; e < edges_end;) {
-//        // Pick up four edges
-//        e4 = *e++;
-//        e3 = *e++;
-//        e2 = *e++;
-//        e1 = *e++;
-//        // Visit each neighbor without returning home
-//        // Once an edge has been traversed, we can resize to
-//        // avoid carrying it along with us.
-//        visit(src, e1); RESIZE();
-//        visit(src, e2); RESIZE();
-//        visit(src, e3); RESIZE();
-//        visit(src, e4); RESIZE();
-//    }
-//}
-
-
 long
 hybrid_bfs::top_down_step_with_migrating_threads()
 {
     // Spawn a thread on each nodelet to process the local queue
     // For each neighbor without a parent, add self as parent and append to queue
     scout_count_ = 0;
-    queue_.forall_items([&](long src) {
+    queue_.forall_items([this](long src) {
         // for each neighbor of that vertex...
-        g_->for_each_out_edge(parallel_policy(64), src, [&](long dst) {
-            // Look up the parent of the vertex we are visiting
-            long * parent = &parent_[dst];
-            long curr_val = *parent;
-            // If we are the first to visit this vertex
-            if (curr_val < 0) {
-                // Set self as parent of this vertex
-                if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
-                    // Add it to the queue
-                    queue_.push_back(dst);
-                    REMOTE_ADD(&scout_count_, -curr_val);
+        g_->for_each_out_edge_grouped(
+            parallel_policy(64), src, [this, src](long dst) {
+                // Look up the parent of the vertex we are visiting
+                long * parent = &parent_[dst];
+                long curr_val = *parent;
+                // If we are the first to visit this vertex
+                if (curr_val < 0) {
+                    // Set self as parent of this vertex
+                    if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
+                        // Add it to the queue
+                        queue_.push_back(dst);
+                        REMOTE_ADD(&scout_count_, -curr_val);
+                    }
                 }
             }
-        });
+        );
     });
     // Combine per-nodelet values of scout_count
     return emu::repl_reduce(scout_count_, std::plus<>());
@@ -137,22 +110,22 @@ hybrid_bfs::bottom_up_step()
     awake_count_ = 0;
 
     // For all vertices without a parent...
-    g_->for_each_vertex([&](long child) {
+    g_->for_each_vertex([this](long child) {
         if (parent_[child] >= 0) { return; }
         // Look for neighbors who are in the frontier
-        parallel::for_each(seq, g_->out_edges_begin(child), g_->out_edges_end(child),
-            [&](long parent) {
-                // If the neighbor is in the frontier...
-                if (parent_[parent] >= 0) {
-                    // Claim as a parent
-                    new_parent_[child] = parent;
-                }
-            }
-        );
+        g_->find_out_edge_grouped(seq, child, [this, child](long parent) {
+            // If the neighbor is in the frontier...
+            if (parent_[parent] >= 0) {
+                // Claim as a parent
+                new_parent_[child] = parent;
+                // No need to keep searching
+                return true;
+            } else return false;
+        });
     });
 
     // Add to the queue all vertices that didn't have a parent before
-    g_->for_each_vertex([&](long v) {
+    g_->for_each_vertex([this](long v) {
         if (parent_[v] < 0 && new_parent_[v] >= 0) {
             // Set parent
             parent_[v] = new_parent_[v];

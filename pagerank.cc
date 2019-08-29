@@ -57,7 +57,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
         g_->for_each_vertex([&](long src) {
             // Sum incoming contribution from all my neighbors
             double incoming = 0;
-            g_->for_each_out_edge(seq, src, [&](long dst) {
+            g_->for_each_out_edge_grouped(seq, src, [&](long dst) {
                 incoming += contrib_[dst];
             });
             // Update my score, combining old score and new

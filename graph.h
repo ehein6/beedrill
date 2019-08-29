@@ -136,6 +136,107 @@ public:
         );
     }
 
+    template<class Function>
+    void for_each_out_edge(long src, Function worker)
+    {
+        for_each_out_edge(emu::execution::default_policy, src, worker);
+    }
+
+    // Optimized functor for iterating over edge lists
+    template<typename Function>
+    struct edge_visitor
+    {
+        Function worker_;
+        explicit edge_visitor(Function worker) : worker_(worker) {}
+
+        void
+        operator()(edge_iterator begin, edge_iterator end)
+        {
+            // Visit neighbors one at a time until remainder is evenly divisible by four
+            while ((end - begin) % 4 != 0) {
+                worker_(*begin++);
+            }
+            long e1, e2, e3, e4;
+            for (long *e = begin; e != end;) {
+                // Pick up four edges
+                e4 = *e++;
+                e3 = *e++;
+                e2 = *e++;
+                e1 = *e++;
+                // Visit each neighbor without returning home
+                // Once an edge has been traversed, we can resize to
+                // avoid carrying it along with us.
+                worker_(e1);
+                worker_(e2);
+                worker_(e3);
+                worker_(e4);
+                RESIZE();
+            }
+        }
+    };
+
+    template<class Function>
+    void for_each_out_edge_grouped(emu::execution::parallel_policy policy, long src, Function worker)
+    {
+        auto begin = out_edges_begin(src);
+        auto end = out_edges_end(src);
+        long grain = policy.grain_;
+        // Spawn a thread for each granule
+        for (; begin != end;) {
+            // Last iteration will be less than a full granule
+            auto last = begin + grain; if (last > end) { last = end; }
+            cilk_spawn edge_visitor{worker}(begin, last);
+            begin = last;
+        }
+    }
+
+    template<class Function>
+    void for_each_out_edge_grouped(emu::execution::sequenced_policy policy, long src, Function worker)
+    {
+        edge_visitor{worker}(out_edges_begin(src), out_edges_end(src));
+    }
+
+
+    // Optimized functor for searching through edge lists
+    template<typename Function>
+    struct edge_searcher
+    {
+        Function worker_;
+        explicit edge_searcher(Function worker) : worker_(worker) {}
+
+        bool
+        operator()(edge_iterator begin, edge_iterator end)
+        {
+            // Visit neighbors one at a time until remainder is evenly divisible by four
+            while ((end - begin) % 4 != 0) {
+                if (worker_(*begin++)) { return true; }
+            }
+            long e1, e2, e3, e4;
+            for (long *e = begin; e != end;) {
+                // Pick up four edges
+                e4 = *e++;
+                e3 = *e++;
+                e2 = *e++;
+                e1 = *e++;
+                // Visit each neighbor without returning home
+                // Once an edge has been traversed, we can resize to
+                // avoid carrying it along with us.
+                if (worker_(e1)) { return true; }
+                if (worker_(e2)) { return true; }
+                if (worker_(e3)) { return true; }
+                if (worker_(e4)) { return true; }
+                RESIZE();
+            }
+            return false;
+        }
+    };
+
+    template<class Function>
+    void find_out_edge_grouped(emu::execution::sequenced_policy policy, long src, Function worker)
+    {
+        edge_searcher{worker}(out_edges_begin(src), out_edges_end(src));
+    }
+
     template<class Compare>
     void
     sort_edge_lists(Compare comp)
@@ -147,18 +248,5 @@ public:
         hooks_region_end();
     }
 
-    template<class Policy, class Function>
-    void find_out_edge_if(Policy policy, long src, Function worker)
-    {
-        // Spawn threads over the range according to the specified policy
-        emu::parallel::for_each(
-            policy, out_edges_begin(src), out_edges_end(src), worker
-        );
-    }
 
-    template<class Function>
-    void for_each_out_edge(long src, Function worker)
-    {
-        for_each_out_edge(emu::execution::default_policy, src, worker);
-    }
 };
