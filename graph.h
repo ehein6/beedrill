@@ -185,7 +185,8 @@ public:
         for (; begin != end;) {
             // Last iteration will be less than a full granule
             auto last = begin + grain; if (last > end) { last = end; }
-            cilk_spawn edge_visitor{worker}(begin, last);
+            edge_visitor visitor(worker);
+            cilk_spawn visitor(begin, last);
             begin = last;
         }
     }
@@ -193,7 +194,8 @@ public:
     template<class Function>
     void for_each_out_edge_grouped(emu::execution::sequenced_policy policy, long src, Function worker)
     {
-        edge_visitor{worker}(out_edges_begin(src), out_edges_end(src));
+        edge_visitor visitor(worker);
+        visitor(out_edges_begin(src), out_edges_end(src));
     }
 
 
@@ -234,7 +236,8 @@ public:
     template<class Function>
     void find_out_edge_grouped(emu::execution::sequenced_policy policy, long src, Function worker)
     {
-        edge_searcher{worker}(out_edges_begin(src), out_edges_end(src));
+        edge_searcher searcher(worker);
+        searcher(out_edges_begin(src), out_edges_end(src));
     }
 
     template<class Compare>
