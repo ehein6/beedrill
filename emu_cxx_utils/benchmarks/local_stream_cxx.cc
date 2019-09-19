@@ -2,11 +2,11 @@
 #include <emu_cxx_utils/for_each.h>
 #include <emu_cxx_utils/fill.h>
 #include <emu_cxx_utils/execution_policy.h>
+#include <emu_cxx_utils/transform.h>
 #include <common.h>
 #include <memory>
 
 using namespace emu;
-using namespace emu::parallel;
 using namespace emu::execution;
 
 struct stream {
@@ -16,18 +16,18 @@ struct stream {
     void init()
     {
         // forall i, A[i] = 1, B[i] = 2, C[i] = -1
-        cilk_spawn fill(fixed, a_.begin(), a_.end(), 1L);
-        cilk_spawn fill(fixed, b_.begin(), b_.end(), 2L);
-        cilk_spawn fill(fixed, c_.begin(), c_.end(), -1L);
+        parallel::fill(fixed, a_.begin(), a_.end(), 1L);
+        parallel::fill(fixed, b_.begin(), b_.end(), 2L);
+        parallel::fill(fixed, c_.begin(), c_.end(), -1L);
     }
 
     void run()
     {
-        for_each(fixed, a_.begin(), a_.end(), [&](long& a) {
-            // HACK compute index so we can walk over all three arrays at once
-            long i = &a - &*a_.begin();
-            c_[i] = a_[i] + b_[i];
-        });
+        parallel::transform(fixed, a_.begin(), a_.end(), b_.begin(), c_.begin(),
+            [] (long a, long b) {
+                return a + b;
+            }
+        );
     }
 
     void validate()

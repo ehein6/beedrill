@@ -7,6 +7,9 @@
 #include "intrinsics.h"
 #include "pointer_manipulation.h"
 
+#include <boost/iterator/zip_iterator.hpp>
+#include <boost/tuple/tuple.hpp>
+
 namespace emu::parallel {
 namespace detail {
 
@@ -35,7 +38,7 @@ for_each(
         // Spawn a thread to handle each granule
         // Last iteration may be smaller if things don't divide evenly
         auto last = begin + grain <= end ? begin + grain : end;
-        cilk_spawn_at(&*begin) for_each(
+        cilk_spawn_at(ptr_from_iter(begin)) for_each(
             execution::seq,
             begin, last, worker
         );
@@ -150,7 +153,7 @@ striped_for_each(
         // Distribute remainder among first few nodelets
         if (nlet < stripe_remainder) { stripe_end += 1; }
         // Spawn a thread to handle each stripe
-        cilk_spawn_at(&*stripe_begin) for_each(
+        cilk_spawn_at(ptr_from_iter(stripe_begin)) for_each(
             policy, stripe_begin, stripe_end, worker
         );
     }
@@ -196,7 +199,7 @@ striped_for_each(
         // Distribute remainder among first few nodelets
         if (nlet < stripe_remainder) { stripe_end += 1; }
         // Spawn a thread to handle each stripe
-        cilk_spawn_at(&*stripe_begin) for_each(
+        cilk_spawn_at(ptr_from_iter(stripe_begin)) for_each(
             policy, stripe_begin, stripe_end, worker
         );
     }
@@ -228,11 +231,18 @@ for_each(
 ){
     if (end-begin == 0) {
         return;
-    } else if (pmanip::is_striped(&*begin)) {
+    } else if (is_striped(begin)) {
         detail::striped_for_each(policy, begin, end, worker);
     } else {
         detail::for_each(policy, begin, end, worker);
     }
+}
+
+template<class Iterator, class UnaryFunction>
+void
+for_each(Iterator begin, Iterator end, UnaryFunction worker
+){
+    for_each(emu::execution::default_policy, begin, end, worker);
 }
 
 } // end namespace emu::parallel

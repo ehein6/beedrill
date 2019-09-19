@@ -2,6 +2,61 @@
 
 #include <emu_c_utils/emu_c_utils.h>
 #include "pointer_manipulation.h"
+#include "stride_iterator.h"
+
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/iterator/zip_iterator.hpp>
+#include <boost/fusion/adapted/std_tuple.hpp>
+
+// TODO move this to a new header
+namespace emu {
+
+template<class Iterator>
+void *
+ptr_from_iter(Iterator iter);
+
+// Raw pointer: this is the base case, return the pointer
+template<class T>
+void *
+ptr_from_iter(T* ptr)
+{
+    return ptr;
+}
+
+// Zip iterator: call is_striped on first element of tuple
+// Assuming no one will try to zip over striped/flat arrays
+template <class... Types>
+void *
+ptr_from_iter(boost::iterators::zip_iterator<std::tuple<Types...>> iter) {
+    return ptr_from_iter(std::get<0>(iter.get_iterator_tuple()));
+}
+
+// stride_iterator: unwrap
+template<class Wrapped>
+void*
+ptr_from_iter(emu::stride_iterator<Wrapped> iter)
+{
+    return ptr_from_iter(static_cast<Wrapped>(iter));
+}
+
+// Regular iterator: get address of pointed-to element
+template<class Iterator>
+void*
+ptr_from_iter(Iterator iter)
+{
+    typename std::iterator_traits<Iterator>::pointer ptr = &*iter;
+    return ptr_from_iter(ptr);
+}
+
+
+template<class Iterator>
+bool is_striped(Iterator iter)
+{
+    return pmanip::is_striped(ptr_from_iter(iter));
+}
+
+}
+
 
 namespace emu::execution {
 
@@ -50,7 +105,7 @@ compute_fixed_grain(parallel_fixed_policy policy, Iterator begin, Iterator end)
 {
     // Figure out if the iterator points to a distributed data structure
     long max_threads = threads_per_nodelet;
-    if (pmanip::is_striped(&*begin)) {
+    if (is_striped(begin)) {
         max_threads *= NODELETS();
     }
     // Calculate a fixed grain size so we spawn exactly enough threads

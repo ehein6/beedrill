@@ -21,6 +21,9 @@ public:
     typedef typename std::iterator_traits<I>::difference_type difference_type;
     typedef typename std::iterator_traits<I>::pointer pointer;
     typedef typename std::iterator_traits<I>::reference reference;
+
+    using wrapped_iterator = I;
+
 private:
     // The wrapped iterator type
     I it;
@@ -28,7 +31,10 @@ public:
     // The amount to add on each increment
     difference_type stride;
 
+    // Create stride iterator from another iterator type
     stride_iterator(I it, difference_type stride=1) : it(it), stride(stride) {}
+    // Convert back to
+    explicit operator wrapped_iterator() { return it; }
 
     reference  operator*()                      { return *it; }
     reference  operator*() const                { return *it; }

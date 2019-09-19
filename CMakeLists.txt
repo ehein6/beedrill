@@ -13,6 +13,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
 
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+
 # Link with emu_c_utils
 find_package(emu_c_utils REQUIRED)
 link_libraries(${EMU_C_UTILS_LIBRARIES})
@@ -47,6 +50,11 @@ endfunction()
 
 # Enable libc extenstions like getline
 add_definitions(-D_XOPEN_SOURCE=700)
+
+# Stop compilation after the first error
+add_definitions(
+    -Wfatal-errors
+)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
     add_subdirectory(generator)

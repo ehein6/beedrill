@@ -103,7 +103,7 @@ T * get_nth(T * repladdr, long n)
 template <typename T>
 const T * get_nth(const T * repladdr, long n)
 {
-    return const_cast<const T*>(get_nth(repladdr, n));
+    return get_nth(const_cast<T*>(repladdr), n);
 }
 
 
