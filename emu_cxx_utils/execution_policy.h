@@ -8,6 +8,10 @@
 #include <boost/iterator/zip_iterator.hpp>
 #include <boost/fusion/adapted/std_tuple.hpp>
 
+#ifndef EMU_CXX_SPAWN_RADIX
+#define EMU_CXX_SPAWN_RADIX 64
+#endif
+
 // TODO move this to a new header
 namespace emu {
 
@@ -86,7 +90,7 @@ struct parallel_fixed_policy : public grain_policy
 // Max number of elements to assign to each thread
 constexpr long default_grain = 128;
 // Max number of threads to spawn within a single thread
-constexpr long spawn_radix = 64;
+constexpr long spawn_radix = EMU_CXX_SPAWN_RADIX;
 // Target number of threads per nodelet
 constexpr long threads_per_nodelet = 64;
 
