@@ -9,7 +9,7 @@
 #include <boost/fusion/adapted/std_tuple.hpp>
 
 #ifndef EMU_CXX_SPAWN_RADIX
-#define EMU_CXX_SPAWN_RADIX 64
+#define EMU_CXX_SPAWN_RADIX 16
 #endif
 
 // TODO move this to a new header
