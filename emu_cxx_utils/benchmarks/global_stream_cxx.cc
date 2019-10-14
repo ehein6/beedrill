@@ -1,13 +1,9 @@
+#include <vector>
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/striped_array.h>
-#include <emu_cxx_utils/for_each.h>
 #include <emu_cxx_utils/fill.h>
-#include <emu_cxx_utils/pointer_manipulation.h>
-#include <algorithm>
-#include <vector>
-#include <common.h>
-#include <numeric>
 #include <emu_cxx_utils/transform.h>
+#include <common.h>
 
 using namespace emu;
 using namespace emu::execution;
@@ -26,14 +22,14 @@ struct stream {
     void init()
     {
         // forall i, A[i] = 1, B[i] = 2, C[i] = -1
-        parallel::fill(fixed, a_.begin(), a_.end(), 1L);
-        parallel::fill(fixed, b_.begin(), b_.end(), 2L);
-        parallel::fill(fixed, c_.begin(), c_.end(), -1L);
+        parallel::fill(a_.begin(), a_.end(), 1L);
+        parallel::fill(b_.begin(), b_.end(), 2L);
+        parallel::fill(c_.begin(), c_.end(), -1L);
     }
 
     void run()
     {
-        parallel::transform(fixed, a_.begin(), a_.end(), b_.begin(), c_.begin(),
+        parallel::transform(a_.begin(), a_.end(), b_.begin(), c_.begin(),
             [] (long a, long b) {
                 return a + b;
             }
