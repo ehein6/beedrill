@@ -64,6 +64,8 @@ bool is_striped(Iterator iter)
 
 namespace emu::execution {
 
+
+
 struct policy_base {};
 
 // Execute loop iterations one at a time, in a single thread
@@ -102,6 +104,17 @@ inline constexpr parallel_dynamic_policy    dyn    {};
 
 inline constexpr auto default_policy = fixed;
 
+// Traits for checking whether an argument is an execution policy
+template<class T>
+struct is_execution_policy : std::false_type {};
+template<> struct is_execution_policy<sequenced_policy> : std::true_type {};
+template<> struct is_execution_policy<parallel_policy> : std::true_type {};
+template<> struct is_execution_policy<parallel_fixed_policy> : std::true_type {};
+template<> struct is_execution_policy<parallel_dynamic_policy> : std::true_type {};
+
+template<class T>
+inline constexpr bool is_execution_policy_v = is_execution_policy<T>::value;
+
 // Adjust grain size so we don't spawn too many threads
 template<class Iterator>
 inline parallel_policy
@@ -121,5 +134,8 @@ compute_fixed_grain(parallel_fixed_policy policy, Iterator begin, Iterator end)
     }
     return parallel_policy(grain);
 }
+
+
+
 
 } // end namespace emu::execution
