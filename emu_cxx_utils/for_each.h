@@ -223,7 +223,10 @@ striped_for_each(
 } // end namespace detail
 
 
-template<class ExecutionPolicy, class Iterator, class UnaryFunction>
+template<class ExecutionPolicy, class Iterator, class UnaryFunction,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
 void
 for_each(
     ExecutionPolicy policy,
