@@ -1,12 +1,18 @@
 #pragma once
 
+#include <type_traits>
 #include <boost/iterator/zip_iterator.hpp>
 #include <boost/fusion/adapted/std_tuple.hpp>
+
+#include "execution_policy.h"
 
 namespace emu::parallel {
 
 template<class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-    class UnaryOperation>
+    class UnaryOperation,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
 void
 transform(
     ExecutionPolicy policy,
@@ -15,7 +21,7 @@ transform(
     UnaryOperation unary_op)
 {
     // Create a zip_iterator to combine the two ranges
-    auto last2 = first2 + (last1-first1);
+    auto last2 = first2 + (last1 - first1);
     auto first = boost::make_zip_iterator(
         std::make_tuple(first1, first2));
     auto last = boost::make_zip_iterator(
@@ -26,20 +32,22 @@ transform(
     });
 }
 
-//template<class ForwardIt1, class ForwardIt2, class UnaryOperation>
-//void
-//transform(
-//    ForwardIt1 first1, ForwardIt1 last1,
-//    ForwardIt2 first2,
-//    UnaryOperation unary_op)
-//{
-//    transform(emu::execution::default_policy,
-//        first1, last1, first2, unary_op);
-//}
-
+template<class ForwardIt1, class ForwardIt2, class UnaryOperation>
+void
+transform(
+    ForwardIt1 first1, ForwardIt1 last1,
+    ForwardIt2 first2,
+    UnaryOperation unary_op)
+{
+    transform(execution::default_policy,
+        first1, last1, first2, unary_op);
+}
 
 template<class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-    class ForwardIt3, class BinaryOperation>
+    class ForwardIt3, class BinaryOperation,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
 void
 transform(
     ExecutionPolicy policy,
@@ -61,17 +69,17 @@ transform(
     });
 }
 
-//template<class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-//    class ForwardIt3, class BinaryOperation>
-//void
-//transform(
-//    ForwardIt1 first1, ForwardIt1 last1,
-//    ForwardIt2 first2,
-//    ForwardIt3 first3,
-//    BinaryOperation binary_op)
-//{
-//    transform(emu::execution::default_policy,
-//        first1, last1, first2, first3, binary_op);
-//}
+template<class ForwardIt1, class ForwardIt2,
+    class ForwardIt3, class BinaryOperation>
+void
+transform(
+    ForwardIt1 first1, ForwardIt1 last1,
+    ForwardIt2 first2,
+    ForwardIt3 first3,
+    BinaryOperation binary_op)
+{
+    transform(execution::default_policy,
+        first1, last1, first2, first3, binary_op);
+}
 
 } // end namespace emu::parallel
