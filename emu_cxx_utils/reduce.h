@@ -4,6 +4,9 @@
 #include <numeric>
 #include <iterator>
 
+#include "execution_policy.h"
+#include "intrinsics.h"
+
 #include <cilk/cilk.h>
 extern "C" {
 #ifdef __le64__
@@ -12,140 +15,159 @@ extern "C" {
 #include "memoryweb_x86.h"
 #endif
 }
-#include "iterator_layout.h"
+
+/**
+ * Dispatch strategy:
+ *
+ * 1. Use public overloads to supply default arguments
+ * 2. Will temp objects live on the stack, or in registers?
+ * 3. Do we have an atomic reduce operation?
+ *
+ */
 
 
-namespace emu {
+namespace emu::parallel {
+namespace detail {
 
-namespace parallel {
 
-//
-//// Generic std::reduce
-//template<class InputIt, class T, class BinaryOp, class Layout>
-//T
-//reduce_dispatch(void * hint, InputIt first, InputIt last, T init, BinaryOp binary_op, Layout)
+//// Specialized for summing up longs
+//template<class ForwardIt, class BinaryOp>
+//void
+//reduce_with_remotes(execution::parallel_policy policy,
+//    ForwardIt first, ForwardIt last, long &parent_sum, BinaryOp binary_op)
 //{
-//    (void)hint;
-//    // TODO choose grain size
-//    const long grain = 4;
-//    for (;;) {
-//        /* How many elements in my range? */
-//        long count = std::distance(first, last);
 //
-//        /* Break out when my range is smaller than the grain size */
-//        if (count <= grain) break;
+//    for_each(first, last, [])
 //
-//        /* Divide the range in half */
-//        /* Invariant: count >= 2 */
-//        auto mid = std::next(first, count/2);
-//
-//        /* Spawn a thread to deal with the lower half */
-//        init = binary_op(
-//            init,
-//            reduce_dispatch(&*first, first, mid, init, binary_op, sequential_layout_tag())
-//        );
-//
-//        /* Shrink range to upper half and repeat */
-//        first = mid;
-//    }
-//    return std::accumulate(first, last, init, binary_op);
+//    // This thread is responsible for the sub-range (first, last)
+//    long my_sum = std::accumulate(first, last, 0, binary_op);
+//    // Wait for children to finish
+//    cilk_sync;
+//    // Add to parent's sum
+//    remote_op<BinaryOp>()(parent_sum, binary_op(children_sum, my_sum));
 //}
-
-
-struct remote_add { void operator() (long& lhs, const long& rhs) { REMOTE_ADD(&lhs, rhs); }};
-struct remote_and { void operator() (long& lhs, const long& rhs) { REMOTE_AND(&lhs, rhs); }};
-struct remote_or  { void operator() (long& lhs, const long& rhs) { REMOTE_OR (&lhs, rhs); }};
-struct remote_xor { void operator() (long& lhs, const long& rhs) { REMOTE_XOR(&lhs, rhs); }};
-struct remote_min { void operator() (long& lhs, const long& rhs) { REMOTE_MIN(&lhs, rhs); }};
-struct remote_max { void operator() (long& lhs, const long& rhs) { REMOTE_MAX(&lhs, rhs); }};
-
-template<typename F>
-struct remote_op {};
-
-template<> struct remote_op<std::plus<long>> : remote_add {};
-template<> struct remote_op<std::bit_and<long>> : remote_and {};
-template<> struct remote_op<std::bit_or<long>> : remote_or {};
-template<> struct remote_op<std::bit_xor<long>> : remote_xor {};
-
-// Problem: there are no std functors for min and max. They might even be macros.
-// What will binary_op be if the programmer wants a max/min reduction?
-// Probably they should use std::max_element or std::min_element instead
-
-
-// Specialized for summing up longs
-template<class InputIt, class BinaryOp>
-void
-reduce_with_remotes(void * hint, InputIt first, InputIt last, long& parent_sum, BinaryOp binary_op, sequential_layout_tag)
+//
+//// Specialization for long type
+//template<class ForwardIt, class T, class BinaryOp>
+//typename std::enable_if_t<
+//    std::is_same_v<long, typename std::iterator_traits<ForwardIt>::value_type>, T>
+//reduce(ForwardIt first, ForwardIt last, T init, BinaryOp binary_op) {
+//    long sum = init;
+//    reduce_with_remotes(first, last, sum, binary_op);
+//    return sum;
+//}
+//
+template<class ForwardIt, class T, class BinaryOp>
+T
+reduce(execution::sequenced_policy policy, ForwardIt first, ForwardIt last,
+       T init, BinaryOp binary_op)
 {
-    (void)hint;
-    // TODO choose grain size
-    const long grain = 4;
-    long children_sum = 0;
-    for (;;) {
-        /* How many elements in my range? */
-        long count = std::distance(first, last);
+    return std::accumulate(first, last, init, binary_op);
+}
 
-        /* Break out when my range is smaller than the grain size */
-        if (count <= grain) break;
+template<class ForwardIt, class T, class BinaryOp>
+T
+reduce(execution::parallel_policy policy, ForwardIt first, ForwardIt last,
+    T init, BinaryOp binary_op)
+{
+    auto grain = policy.grain_;
+    // How many threads will we spawn?
+    auto num_spawns = (last - first + grain - 1) / grain;
+    // Allocate a private T for each one
+    // PROBLEM: where do we put them?
+    std::vector<T> partial_sums(num_spawns);
 
-        /* Divide the range in half */
-        /* Invariant: count >= 2 */
-        auto mid = std::next(first, count/2);
-
-        /* Spawn a thread to deal with the lower half */
-        cilk_spawn reduce_with_remotes(&*first,
-            first, mid,
-            children_sum, binary_op,
-            sequential_layout_tag()
+    // Serial spawn over each granule
+    for (long i = 0; first < last; first += grain) {
+        // Spawn a thread to handle each granule
+        // Last iteration may be smaller if things don't divide evenly
+        auto begin = first;
+        auto end = begin + grain <= last ? begin + grain : last;
+        cilk_migrate_hint(ptr_from_iter(begin));
+        // Spawned thread will copy result to i'th partial sum
+        // NOTE: this line causes an internal compiler error on GCC 7
+        partial_sums[i] = cilk_spawn reduce(
+            execution::seq,
+            begin, end, init, binary_op
         );
-
-        /* Shrink range to upper half and repeat */
-        first = mid;
+        // Moving the increment out of the spawn expression to avoid possible race
+        // This shouldn't be necessary, but the compiler gets this wrong
+        i += 1;
     }
-    // This thread is responsible for the sub-range (first, last)
-    long my_sum = std::accumulate(first, last, 0, binary_op);
-    // Wait for children to finish
+    // Wait for all partial sums to be valid
     cilk_sync;
-    // Add to parent's sum
-    remote_op<BinaryOp>()(parent_sum, binary_op(children_sum, my_sum));
+    // Reduce partial sums in this thread
+    return reduce(execution::seq, partial_sums.begin(), partial_sums.end(),
+        init, binary_op);
 }
 
-// Specialization for long type
-template<class InputIt, class T, class BinaryOp, class Layout>
-typename std::enable_if<
-    std::is_same<long, typename std::iterator_traits<InputIt>::value_type>::value, T
->::type
-reduce_dispatch(void * hint, InputIt first, InputIt last, T init, BinaryOp binary_op, Layout layout)
+template<class ForwardIt, class T, class BinaryOp>
+T
+reduce(execution::parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
+       T init, BinaryOp binary_op)
 {
-    long sum = init;
-    reduce_with_remotes(&*first, first, last, sum, binary_op, layout);
-    return sum;
+    // Recalculate grain size to limit thread count
+    // and forward to unlimited parallel version
+    return reduce(execution::compute_fixed_grain(policy, first, last),
+        first, last, init, binary_op);
 }
 
+} // end namespace detail
 
 // Top-level dispatch functions
-template<class InputIt, class T, class BinaryOp>
+
+template<class ExecutionPolicy, class ForwardIt, class T, class BinaryOp,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
 T
-reduce(InputIt first, InputIt last, T init, BinaryOp binary_op)
+reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last, T init, BinaryOp binary_op)
 {
-    typename iterator_layout<InputIt>::value layout;
-    return reduce_dispatch(&*first, first, last, init, binary_op, layout);
+    return detail::reduce(policy, first, last, init, binary_op);
 }
 
-template<class InputIt, class T>
+template<class ExecutionPolicy, class ForwardIt, class T,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
 T
-reduce(InputIt first, InputIt last, T init)
+reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last, T init)
 {
-    return reduce(first, last, init, std::plus<typename std::iterator_traits<InputIt>::value_type>());
+    return reduce(policy, first, last, init, std::plus<>());
 }
 
-template<class InputIt>
-typename std::iterator_traits<InputIt>::value_type
-reduce(InputIt first, InputIt last)
+template<class ExecutionPolicy, class ForwardIt,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
+typename std::iterator_traits<ForwardIt>::value_type
+reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last)
 {
-    return reduce(first, last, typename std::iterator_traits<InputIt>::value_type{});
+    typename std::iterator_traits<ForwardIt>::value_type init{};
+    return reduce(policy, first, last, init);
 }
 
+template<class ForwardIt, class T, class BinaryOp>
+T
+reduce(ForwardIt first, ForwardIt last, T init, BinaryOp binary_op)
+{
+    return detail::reduce(execution::default_policy,
+        first, last, init, binary_op);
+}
 
-} // end namespace parallel
-} // end namespace emu
+template<class ForwardIt, class T>
+T
+reduce(ForwardIt first, ForwardIt last, T init)
+{
+    return reduce(first, last, init, std::plus<>());
+}
+
+template<class ForwardIt>
+typename std::iterator_traits<ForwardIt>::value_type
+reduce(ForwardIt first, ForwardIt last)
+{
+    typename std::iterator_traits<ForwardIt>::value_type init{};
+    return reduce(first, last, init);
+}
+
+} // end namespace emu::parallel
