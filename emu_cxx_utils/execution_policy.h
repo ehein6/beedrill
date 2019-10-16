@@ -27,6 +27,20 @@ ptr_from_iter(T* ptr)
     return ptr;
 }
 
+// Transform iterator: cast to inner iterator type
+// Dirty hack, eventually should write my own transform iterator
+
+// Problem: once we start unwrapping, we don't get clean top-level types anymore
+// Instead, we get iterator_adaptor, iterator_facade, and other wrappers
+// Very difficult to get down to the actual type
+
+template <class U, class Iterator, class R, class V>
+void *
+ptr_from_iter(boost::iterators::transform_iterator<U, Iterator, R, V> iter)
+{
+    return nullptr; // ptr_from_iter(*reinterpret_cast<Iterator*>(&iter));
+}
+
 // Zip iterator: call is_striped on first element of tuple
 // Assuming no one will try to zip over striped/flat arrays
 template <class... Types>

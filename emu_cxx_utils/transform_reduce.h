@@ -1,10 +1,10 @@
 #pragma once
 
-#include <transform.h>
-#include <reduce.h>
-
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
+
+#include "transform.h"
+#include "reduce.h"
 
 namespace emu::parallel {
 namespace detail {
@@ -26,16 +26,17 @@ template<class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class T, cla
 T transform_reduce(
     ExecutionPolicy &&policy,
     ForwardIt1 first1, ForwardIt1 last1, ForwardIt2 first2,
-    T init, BinaryOp1 binary_op1, BinaryOp2 binary_op2) {
+    T init, BinaryOp1 binary_op1, BinaryOp2 binary_op2)
+{
     // Compute end of second range
-    auto last2 = std::advance(first2, std::distance(first1, last1));
+    auto last2 = std::next(first2, std::distance(first1, last1));
     // Zip ranges together
     auto first = boost::make_zip_iterator(
         std::make_tuple(first1, first2));
     auto last = boost::make_zip_iterator(
         std::make_tuple(last1, last2));
     // Helper function to map the binary op onto a tuple
-    auto worker = [](auto tuple) {
+    auto worker = [binary_op2](auto tuple) {
         return binary_op2(std::get<0>(tuple), std::get<1>(tuple));
     };
     // Convert to transform iterator
