@@ -133,7 +133,7 @@ template<class ExecutionPolicy, class ForwardIt, class T,
 T
 reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last, T init)
 {
-    return reduce(policy, first, last, init, std::plus<>());
+    return detail::reduce(policy, first, last, init, std::plus<>());
 }
 
 template<class ExecutionPolicy, class ForwardIt,
@@ -144,7 +144,7 @@ typename std::iterator_traits<ForwardIt>::value_type
 reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last)
 {
     typename std::iterator_traits<ForwardIt>::value_type init{};
-    return reduce(policy, first, last, init);
+    return detail::reduce(policy, first, last, init, std::plus<>());
 }
 
 template<class ForwardIt, class T, class BinaryOp>
@@ -159,7 +159,8 @@ template<class ForwardIt, class T>
 T
 reduce(ForwardIt first, ForwardIt last, T init)
 {
-    return reduce(first, last, init, std::plus<>());
+    return detail::reduce(execution::default_policy,
+        first, last, init, std::plus<>());
 }
 
 template<class ForwardIt>
@@ -167,7 +168,8 @@ typename std::iterator_traits<ForwardIt>::value_type
 reduce(ForwardIt first, ForwardIt last)
 {
     typename std::iterator_traits<ForwardIt>::value_type init{};
-    return reduce(first, last, init);
+    return detail::reduce(execution::default_policy,
+        first, last, init, std::plus<>());
 }
 
 } // end namespace emu::parallel
