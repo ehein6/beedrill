@@ -27,7 +27,7 @@ struct reduce_bench {
 
     void run()
     {
-        sum_ = parallel::reduce(a_.begin(), a_.end());
+        sum_ = parallel::reduce(a_.begin(), a_.end(), 0L, std::plus<>());
     }
 
     void validate()

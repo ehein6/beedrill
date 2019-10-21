@@ -29,10 +29,9 @@ struct dot_bench {
 
     void run()
     {
+        // sum(A[i] * B[i] for all i)
         product_ = parallel::transform_reduce(
-            a_.begin(), a_.end(), b_.begin(), 0L,
-            [](long lhs, long rhs) { return lhs + rhs; },
-            [](long lhs, long rhs) { return lhs * rhs; });
+            a_.begin(), a_.end(), b_.begin(), 0L, std::plus<>(), std::multiplies<>());
     }
 
     void validate()
