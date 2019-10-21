@@ -52,7 +52,7 @@ public:
         // Double the stride
         begin.stride *= 2;
         // Recalculate past-the-end point based on new stride
-        end = begin + size;
+        std::advance(end, begin + size - end);
     }
 
     friend void

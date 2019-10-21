@@ -65,20 +65,57 @@ reduce(execution::sequenced_policy policy, ForwardIt first, ForwardIt last,
     return std::accumulate(first, last, init, binary_op);
 }
 
+long num_spawns(long size, long grain)
+{
+    long num_spawns = 0;
+    // Convert from number of elements to number of chunks
+    long num_chunks = (size + grain - 1) / grain;
+    const long radix = emu::execution::spawn_radix;
+    // Recursive spawn: 1 per time we divide the range in two
+    while (num_chunks / 2 > radix) {
+        num_chunks /= 2;
+        num_spawns += 1;
+    }
+    // Serial spawn: 1 per chunk
+    num_spawns += num_chunks;
+
+    return num_spawns;
+}
+
 template<class ForwardIt, class T, class BinaryOp>
 T
-reduce(execution::parallel_policy policy, ForwardIt first, ForwardIt last,
+reduce(execution::parallel_policy policy,
+    stride_iterator<ForwardIt> first, stride_iterator<ForwardIt> last,
     T init, BinaryOp binary_op)
 {
     auto grain = policy.grain_;
-    // How many threads will we spawn?
-    auto num_spawns = (last - first + grain - 1) / grain;
-    // Allocate a private T for each one
-    // PROBLEM: where do we put them?
-    std::vector<T> partial_sums(num_spawns);
+    auto radix = emu::execution::spawn_radix;
+    typename std::iterator_traits<ForwardIt>::difference_type size;
 
+    // Allocate a private T for each thread that will be spawned
+    std::vector<T> partial_sums(
+        num_spawns(std::distance(first, last), grain));
+    long tid = 0;
+
+    // Recursive spawn
+    for (;;) {
+        // Keep looping until there are few enough iterations to spawn serially
+        size = last - first;
+        if (size / grain <= radix) break;
+        // Spawn a thread to deal with the odd elements
+        auto first_odds = first + 1, last_odds = last;
+        stretch(first_odds, last_odds);
+        cilk_migrate_hint(ptr_from_iter(first_odds));
+        partial_sums[tid] = cilk_spawn reduce(
+            policy, first_odds, last_odds, init, binary_op
+        );
+        // "Stretch" the iterator, so it only covers the even elements
+        stretch(first, last);
+        // Move to next partial sum
+        tid += 1;
+    }
     // Serial spawn over each granule
-    for (long i = 0; first < last; first += grain) {
+    for (;first < last; first += grain) {
         // Spawn a thread to handle each granule
         // Last iteration may be smaller if things don't divide evenly
         auto begin = first;
@@ -86,13 +123,12 @@ reduce(execution::parallel_policy policy, ForwardIt first, ForwardIt last,
         cilk_migrate_hint(ptr_from_iter(begin));
         // Spawned thread will copy result to i'th partial sum
         // NOTE: this line causes an internal compiler error on GCC 7
-        partial_sums[i] = cilk_spawn reduce(
-            execution::seq,
-            begin, end, init, binary_op
+        partial_sums[tid] = cilk_spawn reduce(
+            execution::seq, begin, end, init, binary_op
         );
         // Moving the increment out of the spawn expression to avoid possible race
         // This shouldn't be necessary, but the compiler gets this wrong
-        i += 1;
+        tid += 1;
     }
     // Wait for all partial sums to be valid
     cilk_sync;
@@ -121,55 +157,26 @@ template<class ExecutionPolicy, class ForwardIt, class T, class BinaryOp,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 T
-reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last, T init, BinaryOp binary_op)
+reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last,
+    T init = typename std::iterator_traits<ForwardIt>::value_type{},
+    BinaryOp binary_op = std::plus<>())
 {
-    return detail::reduce(policy, first, last, init, binary_op);
-}
-
-template<class ExecutionPolicy, class ForwardIt, class T,
-    // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
->
-T
-reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last, T init)
-{
-    return detail::reduce(policy, first, last, init, std::plus<>());
-}
-
-template<class ExecutionPolicy, class ForwardIt,
-    // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
->
-typename std::iterator_traits<ForwardIt>::value_type
-reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last)
-{
-    typename std::iterator_traits<ForwardIt>::value_type init{};
-    return detail::reduce(policy, first, last, init, std::plus<>());
+    return detail::reduce(policy,
+        stride_iterator<ForwardIt>(first),
+        stride_iterator<ForwardIt>(last),
+        init, binary_op);
 }
 
 template<class ForwardIt, class T, class BinaryOp>
 T
-reduce(ForwardIt first, ForwardIt last, T init, BinaryOp binary_op)
+reduce(ForwardIt first, ForwardIt last,
+    T init = typename std::iterator_traits<ForwardIt>::value_type{},
+    BinaryOp binary_op = std::plus<>())
 {
     return detail::reduce(execution::default_policy,
-        first, last, init, binary_op);
-}
-
-template<class ForwardIt, class T>
-T
-reduce(ForwardIt first, ForwardIt last, T init)
-{
-    return detail::reduce(execution::default_policy,
-        first, last, init, std::plus<>());
-}
-
-template<class ForwardIt>
-typename std::iterator_traits<ForwardIt>::value_type
-reduce(ForwardIt first, ForwardIt last)
-{
-    typename std::iterator_traits<ForwardIt>::value_type init{};
-    return detail::reduce(execution::default_policy,
-        first, last, init, std::plus<>());
+        stride_iterator<ForwardIt>(first),
+        stride_iterator<ForwardIt>(last),
+        init, binary_op);
 }
 
 } // end namespace emu::parallel

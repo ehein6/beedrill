@@ -1,4 +1,9 @@
 link_libraries(emu_cxx_utils)
+
+# Stop compilation after first error
+# A singl e
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfatal-errors")
+
 add_executable(local_stream_cxx local_stream_cxx.cc)
 add_executable(global_stream_cxx global_stream_cxx.cc)
 add_executable(global_reduce_cxx global_reduce_cxx.cc)

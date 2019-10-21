@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cilk/cilk.h>
 
 #include "execution_policy.h"
 #include "stride_iterator.h"
@@ -40,7 +41,8 @@ for_each(
         // Spawn a thread to deal with the odd elements
         auto begin_odds = begin + 1, end_odds = end;
         stretch(begin_odds, end_odds);
-        cilk_spawn_at(&*(begin_odds)) for_each(
+        cilk_migrate_hint(ptr_from_iter(begin_odds));
+        cilk_spawn for_each(
             policy, begin_odds, end_odds, worker
         );
         // "Stretch" the iterator, so it only covers the even elements
@@ -51,7 +53,8 @@ for_each(
         // Spawn a thread to handle each granule
         // Last iteration may be smaller if things don't divide evenly
         auto last = begin + grain <= end ? begin + grain : end;
-        cilk_spawn_at(&*begin) for_each(
+        cilk_migrate_hint(ptr_from_iter(begin));
+        cilk_spawn for_each(
             execution::seq,
             begin, last, worker
         );
@@ -74,7 +77,10 @@ for_each(
 
 } // end namespace detail
 
-template<class ExecutionPolicy, class Iterator, class UnaryFunction>
+template<class ExecutionPolicy, class Iterator, class UnaryFunction,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+>
 void
 for_each(
     ExecutionPolicy policy,
@@ -87,5 +93,13 @@ for_each(
         worker
     );
 }
+
+template<class Iterator, class UnaryFunction>
+void
+for_each(Iterator begin, Iterator end, UnaryFunction worker
+){
+    for_each(emu::execution::default_policy, begin, end, worker);
+}
+
 
 } // end namespace emu::parallel
