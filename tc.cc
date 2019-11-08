@@ -1,5 +1,6 @@
 #include "tc.h"
 #include <algorithm>
+#include <emu_cxx_utils/intrinsics.h>
 #include <cassert>
 #include <cilk/cilk.h>
 #include <emu_c_utils/emu_c_utils.h>
@@ -32,7 +33,7 @@ triangle_count::count_triangles(long u)
     // Use binary search to find neighbors of u that are less than u.
     auto v_begin = g_->out_edges_begin(u);
     auto v_end = std::lower_bound(v_begin, g_->out_edges_end(u), u);
-    for_each(fixed, v_begin, v_end, [&](long v) {
+    for_each(fixed, v_begin, v_end, [this, u](long v) {
         // At this point we have one side of the triangle, from u to v
         // For each edge v->w, see if we also have u->w to complete the triangle
         // Once again, we limit ourselves to the neighbors of v that are less than v
@@ -41,14 +42,14 @@ triangle_count::count_triangles(long u)
         auto vw_end = std::lower_bound(vw_begin, g_->out_edges_end(v), v);
         // Iterator over edges of u
         auto p_uw = g_->out_edges_begin(u);
-        for_each(seq, vw_begin, vw_end, [&](long w){
+        for_each(seq, vw_begin, vw_end, [this, &p_uw](long w){
             // Now we have u->v and v->w
             // Scan through neighbors of u, looking for w
             while (*p_uw < w) { p_uw++; } // TODO this could use lower_bound
             if (w == *p_uw) {
                 // Found the triangle u->v->w
                 // LOG("Found triangle %li->%li->%li\n", u, v, w);
-                REMOTE_ADD(&num_triangles_, 1);
+                remote_add(&num_triangles_, 1);
             }
         });
     });
