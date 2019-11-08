@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <emu_c_utils/emu_c_utils.h>
 
 namespace emu {
@@ -28,7 +29,7 @@ template<>
 inline long
 atomic_cas(long volatile * ptr, long oldval, long newval)
 {
-    return ATOMIC_CAS(ptr, oldval, newval);
+    return ATOMIC_CAS(ptr, newval, oldval);
 }
 
 template<>
@@ -51,6 +52,29 @@ atomic_cas(double volatile * ptr, double oldval, double newval)
         oldval_p.i
     );
     return retval_p.f;
+}
+
+template<typename T>
+inline T
+atomic_cas(T volatile * ptr, T oldval, T newval)
+{
+    static_assert(sizeof(T) == sizeof(long), "CAS supported only for 64-bit types");
+    // TODO create an ATOMIC_CAS intrinsic that takes a double
+    // We're fighting the C++ type system, but codegen doesn't care
+    union pun {
+        T t;
+        long i;
+    };
+    pun oldval_p{oldval};
+    pun newval_p{newval};
+    pun retval_p;
+
+    retval_p.i = ATOMIC_CAS(
+        reinterpret_cast<long volatile*>(ptr),
+        newval_p.i,
+        oldval_p.i
+    );
+    return retval_p.t;
 }
 
 struct remote_add {
