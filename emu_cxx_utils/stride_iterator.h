@@ -51,9 +51,11 @@ public:
         difference_type size = (end - begin + 1) / 2;
         // Double the stride
         begin.stride *= 2;
-        end.stride *= 2;
         // Recalculate past-the-end point based on new stride
-        std::advance(end, begin + size - end);
+        while (end < begin + size) {
+            std::advance(end, 1);
+        }
+        end.stride *= 2;
     }
 
     friend void
