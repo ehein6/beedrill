@@ -61,6 +61,34 @@ for_each(
     }
 }
 
+// Parallel dynamic version
+// Special case for when our iterator type is a stride iterator
+// wrapping a raw pointer
+template<class T, class UnaryFunction>
+void
+for_each(
+    execution::parallel_dynamic_policy,
+    stride_iterator<T*> s_begin, stride_iterator<T*> s_end,
+    UnaryFunction worker
+) {
+    // Shared pointer to the next item to process
+    T * next = &*s_begin;
+    T * end = &*s_end;
+    // Create a worker thread for each execution slot
+    for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+        cilk_spawn [&next, end, stride=s_begin.stride, worker](){
+            // Atomically grab the next item off the list
+            for (T * item = atomic_addms(&next, stride);
+                 item < end;
+                 item = atomic_addms(&next, stride))
+            {
+                // Call the worker function on the item
+                worker(*item);
+            }
+        }();
+    }
+}
+
 template<class Iterator, class UnaryFunction>
 void
 for_each(
