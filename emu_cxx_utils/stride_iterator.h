@@ -42,27 +42,41 @@ public:
     pointer    operator->() const               { return it; }
     reference  operator[](difference_type i)    { return *(*(this) + i); }
 
-    // Modifies a pair of stride iterators, doubling their stride
-    // The resulting range will cover every other element
+    // Split a range into two sub-ranges consisting of the even and odd
+    // elements from the initial range. The resulting iterators will have
+    // double the stride of the input ranges.
+    // Caller is expected to pass two copies of the input range.
+    // e.g. on entry, begin_evens == begin_odds && end_evens == end_odds.
+    // Arguments are modified in-place.
     friend void
-    stretch(self_type& begin, self_type& end)
+    split(self_type& begin_evens, self_type& end_evens,
+          self_type& begin_odds,  self_type& end_odds)
     {
-        // Compute new size of range (divide by 2 and round up)
-        difference_type size = (end - begin + 1) / 2;
-        // Double the stride
-        begin.stride *= 2;
-        // Recalculate past-the-end point based on new stride
-        while (end < begin + size) {
-            std::advance(end, 1);
-        }
-        end.stride *= 2;
-    }
+        // Odd range starts at index 1
+        std::advance(begin_odds, 1);
 
-    friend void
-    stretch(self_type& self)
-    {
-        // Double the stride
-        self.stride *= 2;
+        // Adjust range endpoints. This is tricky!
+        // - The past-the-end points for both ranges need to move forwards 1,
+        //   since after we double the stride we actually need to be
+        //   two-past-the-end.
+        // - Then we need to decide which range gets the last element:
+        //       - If n is even, n-1 is odd, so the last element belongs to the
+        //         odd range. Need to move the even range endpoint back by 1.
+        //       - If n is odd, n-1 is even, and the odd range has one fewer
+        //         element. Need to move the odd range endpoint back by 1.
+        // - Adding these factors together, we advance the odd endpoint
+        //   if n is even, and advance the even endpoint n is odd.
+        if (std::distance(begin_evens, end_evens) % 2 == 0) {
+            std::advance(end_odds, 1);
+        } else {
+            std::advance(end_evens, 1);
+        }
+
+        // Finally, double the stride of both ranges
+        begin_evens.stride *= 2;
+        end_evens.stride *= 2;
+        begin_odds.stride *= 2;
+        end_odds.stride *= 2;
     }
 
     // This is the magic, incrementing moves you forward by 'stride' elements

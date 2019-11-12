@@ -39,14 +39,13 @@ for_each(
         size = end - begin;
         if (size / grain <= radix) break;
         // Spawn a thread to deal with the odd elements
-        auto begin_odds = begin + 1, end_odds = end;
-        stretch(begin_odds, end_odds);
+        auto begin_odds = begin, end_odds = end;
+        split(begin, end, begin_odds, end_odds);
         cilk_migrate_hint(ptr_from_iter(begin_odds));
         cilk_spawn for_each(
             policy, begin_odds, end_odds, worker
         );
-        // "Stretch" the iterator, so it only covers the even elements
-        stretch(begin, end);
+        // Recurse over the even elements
     }
     // Serial spawn
     for (; begin < end; begin += grain) {
@@ -61,32 +60,58 @@ for_each(
     }
 }
 
+// // Parallel dynamic version
+// // Special case for when our iterator type is a stride iterator
+// // wrapping a raw pointer
+// template<class T, class UnaryFunction>
+// void
+// for_each(
+//     execution::parallel_dynamic_policy,
+//     stride_iterator<T*> s_begin, stride_iterator<T*> s_end,
+//     UnaryFunction worker
+// ) {
+//     // Shared pointer to the next item to process
+//     T * next = static_cast<T*>(s_begin);
+//     T * end = static_cast<T*>(s_end);
+//     // Create a worker thread for each execution slot
+//     for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+//         cilk_spawn [&next, end, worker](){
+//             // Atomically grab the next item off the list
+//             for (T * item = atomic_addms(&next, 1);
+//                  item < end;
+//                  item = atomic_addms(&next, 1))
+//             {
+//                 // Call the worker function on the item
+//                 worker(*item);
+//             }
+//         }();
+//     }
+// }
+
 // Parallel dynamic version
-// Special case for when our iterator type is a stride iterator
-// wrapping a raw pointer
+// Assumes that the iterators are raw pointers that can be atomically advanced
 template<class T, class UnaryFunction>
 void
 for_each(
-    execution::parallel_dynamic_policy,
-    stride_iterator<T*> s_begin, stride_iterator<T*> s_end,
-    UnaryFunction worker
+   execution::parallel_dynamic_policy,
+   T* begin, T* end,
+   UnaryFunction worker
 ) {
-    // Shared pointer to the next item to process
-    T * next = &*s_begin;
-    T * end = &*s_end;
-    // Create a worker thread for each execution slot
-    for (long t = 0; t < execution::threads_per_nodelet; ++t) {
-        cilk_spawn [&next, end, stride=s_begin.stride, worker](){
-            // Atomically grab the next item off the list
-            for (T * item = atomic_addms(&next, stride);
-                 item < end;
-                 item = atomic_addms(&next, stride))
-            {
-                // Call the worker function on the item
-                worker(*item);
-            }
-        }();
-    }
+   // Shared pointer to the next item to process
+   T * next = begin;
+   // Create a worker thread for each execution slot
+   for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+       cilk_spawn [&](){
+           // Atomically grab the next item off the list
+           for (T * item = atomic_addms(&next, 1);
+                item < end;
+                item = atomic_addms(&next, 1))
+           {
+               // Call the worker function on the item
+               worker(*item);
+           }
+       }();
+   }
 }
 
 template<class Iterator, class UnaryFunction>
