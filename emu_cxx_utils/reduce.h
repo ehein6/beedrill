@@ -103,14 +103,12 @@ reduce(execution::parallel_policy policy,
         size = last - first;
         if (size / grain <= radix) break;
         // Spawn a thread to deal with the odd elements
-        auto first_odds = first + 1, last_odds = last;
-        stretch(first_odds, last_odds);
+        auto first_odds = first, last_odds = last;
+        split(first, last, first_odds, last_odds);
         cilk_migrate_hint(ptr_from_iter(first_odds));
         partial_sums[tid] = cilk_spawn reduce(
             policy, first_odds, last_odds, init, binary_op
         );
-        // "Stretch" the iterator, so it only covers the even elements
-        stretch(first, last);
         // Move to next partial sum
         tid += 1;
     }
