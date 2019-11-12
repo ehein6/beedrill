@@ -27,43 +27,18 @@ ptr_from_iter(T* ptr)
     return ptr;
 }
 
-// Transform iterator: cast to inner iterator type
-// Dirty hack, eventually should write my own transform iterator
-
-// Problem: once we start unwrapping, we don't get clean top-level types anymore
-// Instead, we get iterator_adaptor, iterator_facade, and other wrappers
-// Very difficult to get down to the actual type
-
-template <class U, class Iterator, class R, class V>
-void *
-ptr_from_iter(boost::iterators::transform_iterator<U, Iterator, R, V> iter)
-{
-    return nullptr; // ptr_from_iter(*reinterpret_cast<Iterator*>(&iter));
-}
-
-// Zip iterator: call is_striped on first element of tuple
-// Assuming no one will try to zip over striped/flat arrays
-template <class... Types>
-void *
-ptr_from_iter(boost::iterators::zip_iterator<std::tuple<Types...>> iter) {
-    return ptr_from_iter(std::get<0>(iter.get_iterator_tuple()));
-}
-
-// stride_iterator: unwrap
-template<class Wrapped>
-void*
-ptr_from_iter(emu::stride_iterator<Wrapped> iter)
-{
-    return ptr_from_iter(static_cast<Wrapped>(iter));
-}
-
-// Regular iterator: get address of pointed-to element
+// For any other iterator type,
+// Assume that the first member of the iterator is a pointer
+// This isn't safe, but should work most of the time:
+// - Most iterators are just wrapping a raw pointer
+// - Zip iterator wraps multiple pointers, this grabs the first one
+// - For transform iterator, this will give us the pointer to the thing the
+//   functor will be called upon
 template<class Iterator>
 void*
 ptr_from_iter(Iterator iter)
 {
-    typename std::iterator_traits<Iterator>::pointer ptr = &*iter;
-    return ptr_from_iter(ptr);
+    return *reinterpret_cast<void**>(&iter);
 }
 
 
