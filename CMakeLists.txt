@@ -93,6 +93,16 @@ add_emusim_test( "bfs_beamer_hybrid"
     hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg beamer_hybrid
 )
 
+add_executable(components
+    components.h
+    components.cc
+    components_main.cc
+)
+
+add_emusim_test( "components"
+    components.mwx --graph ${TEST_GRAPH} --check_results
+)
+
 add_executable(triangle_count
    tc.h
    tc.cc
