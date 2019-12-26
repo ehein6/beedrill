@@ -21,9 +21,8 @@ find_package(emu_c_utils REQUIRED)
 link_libraries(${EMU_C_UTILS_LIBRARIES})
 include_directories(${EMU_C_UTILS_INCLUDE_DIRS})
 
-# Build emu_cxx_utils
-add_subdirectory(emu_cxx_utils)
-
+# FIXME emu_cxx_utils depends on this Macro
+# Make it available everywhere
 # Macro for running tests on x86 or emusim
 function(add_emusim_test name command)
     if (CMAKE_SYSTEM_NAME STREQUAL Emu1)
@@ -48,6 +47,11 @@ function(add_emusim_test name command)
     endif()
 endfunction()
 
+# Build emu_cxx_utils
+add_subdirectory(emu_cxx_utils)
+
+
+
 # Enable libc extenstions like getline
 add_definitions(-D_XOPEN_SOURCE=700)
 
@@ -69,6 +73,8 @@ add_library(graph STATIC
 )
 link_libraries(graph)
 
+# Breadth-first search
+
 add_executable(hybrid_bfs
     ack_control.h
     sliding_queue.h
@@ -77,6 +83,7 @@ add_executable(hybrid_bfs
     hybrid_bfs.cc
     hybrid_bfs_main.cc
 )
+install(TARGETS hybrid_bfs RUNTIME DESTINATION ".")
 
 set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale12")
 
@@ -93,31 +100,40 @@ add_emusim_test( "bfs_beamer_hybrid"
     hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg beamer_hybrid
 )
 
+# Connected Components
+
 add_executable(components
     components.h
     components.cc
     components_main.cc
 )
+install(TARGETS components RUNTIME DESTINATION ".")
 
 add_emusim_test( "components"
     components.mwx --graph ${TEST_GRAPH} --check_results
 )
+
+# Triangle Count
 
 add_executable(triangle_count
    tc.h
    tc.cc
    tc_main.cc
 )
+install(TARGETS triangle_count RUNTIME DESTINATION ".")
 
 add_emusim_test( "triangle_count"
     triangle_count.mwx --graph ${TEST_GRAPH} --check_results
 )
+
+# PageRank
 
 add_executable(pagerank
    pagerank.h
    pagerank.cc
    pagerank_main.cc
 )
+install(TARGETS pagerank RUNTIME DESTINATION ".")
 
 add_emusim_test( "pagerank"
     pagerank.mwx --graph ${TEST_GRAPH} --check_results
