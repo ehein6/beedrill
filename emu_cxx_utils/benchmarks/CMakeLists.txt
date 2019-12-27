@@ -15,3 +15,19 @@ add_custom_target(benchmarks DEPENDS
     global_reduce_cxx
     dot_product_cxx
 )
+
+add_emusim_test( "local_stream_cxx"
+    local_stream_cxx.mwx 15 1
+)
+
+add_emusim_test( "global_stream_cxx"
+    local_stream_cxx.mwx 15 1
+)
+
+add_emusim_test( "global_reduce_cxx"
+    local_stream_cxx.mwx 15 1
+)
+
+add_emusim_test( "dot_product_cxx"
+    local_stream_cxx.mwx 15 1
+)
