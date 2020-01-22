@@ -101,7 +101,7 @@ int main(int argc, char ** argv)
     if (active_region != NULL) {
         hooks_set_active_region(active_region);
     } else {
-        hooks_set_active_region("tc");
+        hooks_set_active_region("components");
     }
 
     // Parse command-line arguments
