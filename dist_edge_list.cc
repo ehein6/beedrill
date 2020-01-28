@@ -205,28 +205,6 @@ scatter_edges(edge_list& el, dist_edge_list& dist_el)
 dist_edge_list::handle
 dist_edge_list::load(const char* filename)
 {
-    edge_list el;
-
-    hooks_region_begin("load_edge_list");
-    load_edge_list_local(filename, &el);
-    hooks_region_end();
-
-    auto dist_el = emu::make_repl_copy<dist_edge_list>(
-        el.num_vertices, el.num_edges
-    );
-
-    LOG("Scattering edge list from nodelet 0...\n");
-    hooks_region_begin("scatter_edge_list");
-    scatter_edges(el, *dist_el);
-    hooks_region_end();
-
-    return dist_el;
-}
-
-// Initializes the distributed edge list EL from the file
-dist_edge_list::handle
-dist_edge_list::load_buffered(const char* filename)
-{
     LOG("Opening %s...\n", filename);
     FILE* fp = fopen(filename, "rb");
     if (fp == nullptr) {
@@ -257,6 +235,8 @@ dist_edge_list::load_buffered(const char* filename)
         header.num_vertices, header.num_edges
     );
 
+    LOG("Loading %li edges from %s\n", header.num_edges, filename);
+
     // Double-buffering: read edges into one buffer while we scatter the other
     size_t buffer_len = 50000;
     std::vector<edge> buffer_A(buffer_len);
@@ -266,22 +246,30 @@ dist_edge_list::load_buffered(const char* filename)
 
     // Skip scatter on first iteration
     scatter_buffer->resize(0);
+    // Next index to target in the dist_edge_list
+    size_t scatter_pos = 0;
 
     hooks_region_begin("load_edge_list_buffered");
     for (size_t edges_remaining = header.num_edges;
-        edges_remaining && !scatter_buffer->empty();
+        edges_remaining || !scatter_buffer->empty();
         edges_remaining -= buffer_len)
     {
         // Shrink buffer if there are few edges remaining
         buffer_len = std::min(edges_remaining, buffer_len);
         file_buffer->resize(buffer_len);
 
+        // Print progress meter
+        // Uses carriage return to update the same line over and over
+        LOG("\rLoaded %3.0f%%...",
+            100.0 * ((double)header.num_edges - edges_remaining)
+            / header.num_edges);
+
         // Spawn local threads to scatter edges across the system from scatter buffer
         cilk_spawn parallel::for_each(fixed, scatter_buffer->begin(), scatter_buffer->end(),
             [&](edge &e) {
                 long i = &e - &*scatter_buffer->begin();
-                dist_el->src_[i] = e.src;
-                dist_el->dst_[i] = e.dst;
+                dist_el->src_[i + scatter_pos] = e.src;
+                dist_el->dst_[i + scatter_pos] = e.dst;
             }
         );
 
@@ -296,9 +284,12 @@ dist_edge_list::load_buffered(const char* filename)
         }
         // Wait for scatter to complete
         cilk_sync;
+        // Advance position in buffer
+        scatter_pos += scatter_buffer->size();
         // Swap buffers
         std::swap(file_buffer, scatter_buffer);
     }
+    LOG("\n");
     hooks_region_end();
 
     // Close file handle
