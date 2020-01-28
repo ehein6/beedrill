@@ -41,14 +41,10 @@ struct dist_edge_list
     using handle = std::unique_ptr<emu::repl_copy<dist_edge_list>>;
 
     // Creates distributed edge list from file
-    static handle
-    load(const char* filename);
-
-    // Creates distributed edge list from file
     // Supports files that are larger than the memory of a single
     // nodelet by doing a buffered load
     static handle
-    load_buffered(const char* filename);
+    load(const char* filename);
 
     // Creates distributed edge list from file
     // Reads from all nodelets at once
