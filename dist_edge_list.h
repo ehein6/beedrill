@@ -37,13 +37,23 @@ struct dist_edge_list
 
     dist_edge_list(const dist_edge_list& other) = delete;
 
+    // Smart pointer to a replicated dist_edge_list
+    using handle = std::unique_ptr<emu::repl_copy<dist_edge_list>>;
+
     // Creates distributed edge list from file
-    static std::unique_ptr<emu::repl_copy<dist_edge_list>>
+    static handle
     load(const char* filename);
+
+    // Creates distributed edge list from file
+    // Supports files that are larger than the memory of a single
+    // nodelet by doing a buffered load
+    static handle
+    load_buffered(const char* filename);
+
     // Creates distributed edge list from file
     // Reads from all nodelets at once
     // Assumes filename is the same on all nodelets
-    static std::unique_ptr<emu::repl_copy<dist_edge_list>>
+    static handle
     load_distributed(const char* filename);
     // Print the edge list to stdout for debugging
     void dump() const;

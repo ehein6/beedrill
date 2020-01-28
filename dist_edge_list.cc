@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #include <emu_cxx_utils/for_each.h>
 
 using namespace emu;
@@ -201,7 +202,7 @@ scatter_edges(edge_list& el, dist_edge_list& dist_el)
 }
 
 // Initializes the distributed edge list EL from the file
-std::unique_ptr<emu::repl_copy<dist_edge_list>>
+dist_edge_list::handle
 dist_edge_list::load(const char* filename)
 {
     edge_list el;
@@ -222,6 +223,89 @@ dist_edge_list::load(const char* filename)
     return dist_el;
 }
 
+// Initializes the distributed edge list EL from the file
+dist_edge_list::handle
+dist_edge_list::load_buffered(const char* filename)
+{
+    LOG("Opening %s...\n", filename);
+    FILE* fp = fopen(filename, "rb");
+    if (fp == nullptr) {
+        LOG("Unable to open %s\n", filename);
+        exit(1);
+    }
+
+    edge_list_file_header header;
+    parse_edge_list_file_header(fp, &header);
+
+    if (header.num_vertices <= 0 || header.num_edges <= 0) {
+        LOG("Invalid graph size in header\n");
+        exit(1);
+    }
+    // TODO add support for other formats
+    if (!header.format || !!strcmp(header.format, "el64")) {
+        LOG("Unsuppported edge list format %s\n", header.format);
+        exit(1);
+    }
+    // Future implementations may be able to handle duplicates
+    if (!header.is_deduped) {
+        LOG("Edge list must be sorted and deduped.");
+        exit(1);
+    }
+
+    // Allocate the distributed edge list
+    auto dist_el = emu::make_repl_copy<dist_edge_list>(
+        header.num_vertices, header.num_edges
+    );
+
+    // Double-buffering: read edges into one buffer while we scatter the other
+    size_t buffer_len = 50000;
+    std::vector<edge> buffer_A(buffer_len);
+    std::vector<edge> buffer_B(buffer_len);
+    auto* file_buffer = &buffer_A;
+    auto* scatter_buffer = &buffer_B;
+
+    // Skip scatter on first iteration
+    scatter_buffer->resize(0);
+
+    hooks_region_begin("load_edge_list_buffered");
+    for (size_t edges_remaining = header.num_edges;
+        edges_remaining && !scatter_buffer->empty();
+        edges_remaining -= buffer_len)
+    {
+        // Shrink buffer if there are few edges remaining
+        buffer_len = std::min(edges_remaining, buffer_len);
+        file_buffer->resize(buffer_len);
+
+        // Spawn local threads to scatter edges across the system from scatter buffer
+        cilk_spawn parallel::for_each(fixed, scatter_buffer->begin(), scatter_buffer->end(),
+            [&](edge &e) {
+                long i = &e - &*scatter_buffer->begin();
+                dist_el->src_[i] = e.src;
+                dist_el->dst_[i] = e.dst;
+            }
+        );
+
+        // Read a chunk of edges from the file into file buffer
+        size_t rc = fread(file_buffer->data(), sizeof(edge), file_buffer->size(), fp);
+        // Check return code from fread
+        if (rc != file_buffer->size()) {
+            LOG("Failed to load edge list from %s ", filename);
+            if (feof(fp)) { LOG("unexpected EOF\n"); }
+            else if (ferror(fp)) { perror("fread returned error\n"); }
+            exit(1);
+        }
+        // Wait for scatter to complete
+        cilk_sync;
+        // Swap buffers
+        std::swap(file_buffer, scatter_buffer);
+    }
+    hooks_region_end();
+
+    // Close file handle
+    fclose(fp);
+
+    return dist_el;
+}
 
 // FIXME
 //size_t
