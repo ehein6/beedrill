@@ -228,6 +228,11 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
+    // Quit early if algorithm == none
+    if (!strcmp(args.algorithm, "none")) {
+        return success;
+    }
+
     // Initialize the algorithm
     LOG("Initializing BFS data structures...\n");
     hooks_set_attr_str("algorithm", args.algorithm);
