@@ -88,7 +88,7 @@ install(TARGETS hybrid_bfs RUNTIME DESTINATION ".")
 set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale12")
 
 add_emusim_test( "build_graph"
-    hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_graph
+    hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_graph --alg none
 )
 add_emusim_test( "bfs_migrating_threads"
     hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_results --alg migrating_threads
