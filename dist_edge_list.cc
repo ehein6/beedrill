@@ -238,7 +238,7 @@ dist_edge_list::load(const char* filename)
     LOG("Loading %li edges from %s\n", header.num_edges, filename);
 
     // Double-buffering: read edges into one buffer while we scatter the other
-    size_t buffer_len = 50000;
+    size_t buffer_len = (100 * (1 << 20)) / sizeof(edge);
     std::vector<edge> buffer_A(buffer_len);
     std::vector<edge> buffer_B(buffer_len);
     auto* file_buffer = &buffer_A;
