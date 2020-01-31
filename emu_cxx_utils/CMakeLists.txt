@@ -23,7 +23,7 @@ set(headers
 add_library(emu_cxx_utils INTERFACE)
 #target_sources(emu_cxx_utils INTERFACE ${headers})
 target_include_directories(emu_cxx_utils INTERFACE ..)
-install(FILES ${headers} DESTINATION include/emu_cxx_utils)
+# install(FILES ${headers} DESTINATION include/emu_cxx_utils)
 
 enable_testing()
 
