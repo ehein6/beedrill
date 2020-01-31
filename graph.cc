@@ -67,8 +67,8 @@ graph::from_edge_list(dist_edge_list & dist_el)
     dist_el.forall_edges([&] (long src, long dst) {
         assert(src >= 0 && src < g->num_vertices());
         assert(dst >= 0 && dst < g->num_vertices());
-        REMOTE_ADD(&g->vertex_out_degree_[src], 1);
-        REMOTE_ADD(&g->vertex_out_degree_[dst], 1);
+        emu::remote_add(&g->vertex_out_degree_[src], 1);
+        emu::remote_add(&g->vertex_out_degree_[dst], 1);
     });
     hooks_region_end();
 
@@ -79,7 +79,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     hooks_region_begin("count_local_edges");
     mw_replicated_init(&g->num_local_edges_, 0);
     g->for_each_vertex([&](long v) {
-        ATOMIC_ADDMS(&g->num_local_edges_, g->vertex_out_degree_[v]);
+        emu::atomic_addms(&g->num_local_edges_, g->vertex_out_degree_[v]);
     });
     hooks_region_end();
 
@@ -105,8 +105,8 @@ graph::from_edge_list(dist_edge_list & dist_el)
     assert(edge_storage);
     // Initialize each copy of G.edge_storage to point to the local chunk
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        *(long**)mw_get_nth(&g->edge_storage_, nlet) = edge_storage[nlet];
-        *(long**)mw_get_nth(&g->next_edge_storage_, nlet) = edge_storage[nlet];
+        g->get_nth(nlet).edge_storage_ = edge_storage[nlet];
+        g->get_nth(nlet).next_edge_storage_ = edge_storage[nlet];
     }
 
     // Assign each edge block a position within the big array
