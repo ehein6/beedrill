@@ -230,7 +230,7 @@ int main(int argc, char ** argv)
 
     // Quit early if algorithm == none
     if (!strcmp(args.algorithm, "none")) {
-        return success;
+        return !success;
     }
 
     // Initialize the algorithm
