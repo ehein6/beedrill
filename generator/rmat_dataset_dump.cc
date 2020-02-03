@@ -256,11 +256,10 @@ public:
             // Note: The symmetric format expects the lower half of a triangular
             // matrix (src > dst). The resulting graph will be the same
             // since it is undirected.
-            if (e.src > e.dst) {
-                f << e.src << " " << e.dst << " 1\n";
-            } else {
-                f << e.dst << " " << e.src << " 1\n";
-            }
+            // Also convert to 1-based indexing
+            long src = std::max(e.src, e.dst) + 1;
+            long dst = std::min(e.src, e.dst) + 1;
+            f << src << " " << dst << " 1\n";
         }
         // Clean up
         f.close();
