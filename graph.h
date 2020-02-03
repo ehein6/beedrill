@@ -17,9 +17,10 @@ struct graph {
     emu::repl<long> num_edges_;
 
     // Distributed vertex array
+    // ID of each vertex
+    emu::striped_array<long> vertex_id_;
     // number of neighbors for this vertex (on all nodelets)
     emu::striped_array<long> vertex_out_degree_;
-
     // Pointer to local edge array (light vertices only)
     // OR replicated edge block pointer (heavy vertices only)
     emu::striped_array<long *> vertex_out_neighbors_;
@@ -33,16 +34,22 @@ struct graph {
 
     // Constructor
     graph(long num_vertices, long num_edges)
-        : num_vertices_(num_vertices), num_edges_(num_edges), vertex_out_degree_(num_vertices),
-          vertex_out_neighbors_(num_vertices) {}
+    : num_vertices_(num_vertices)
+    , num_edges_(num_edges)
+    , vertex_id_(num_vertices)
+    , vertex_out_degree_(num_vertices)
+    , vertex_out_neighbors_(num_vertices)
+    {}
 
     // Shallow copy constructor
-    graph(const graph &other, emu::shallow_copy)
-        : num_vertices_(other.num_vertices_), num_edges_(other.num_edges_)
-        // Make shallow copies for striped arrays
-        , vertex_out_degree_(other.vertex_out_degree_, emu::shallow_copy()),
-          vertex_out_neighbors_(other.vertex_out_neighbors_, emu::shallow_copy()) {
-    }
+    graph(const graph &other, emu::shallow_copy shallow)
+    : num_vertices_(other.num_vertices_)
+    , num_edges_(other.num_edges_)
+    // Make shallow copies for striped arrays
+    , vertex_id_(other.vertex_id_, shallow)
+    , vertex_out_degree_(other.vertex_out_degree_, shallow)
+    , vertex_out_neighbors_(other.vertex_out_neighbors_, shallow)
+    {}
 
     graph(const graph &other) = delete;
 
@@ -112,13 +119,8 @@ public:
     template<class Policy, class Function>
     void for_each_vertex(Policy policy, Function worker)
     {
-        emu::parallel::for_each(policy,
-            vertex_out_degree_.begin(), vertex_out_degree_.end(),
-            [worker,degree_begin=vertex_out_degree_.begin()](long &degree) {
-                // HACK Compute index in table from the pointer
-                long vertex_id = &degree - degree_begin;
-                worker(vertex_id);
-            }
+        emu::parallel::for_each(
+            policy, vertex_id_.begin(), vertex_id_.end(), worker
         );
     }
 
