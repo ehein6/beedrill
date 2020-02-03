@@ -56,10 +56,19 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Initializing distributed vertex list...\n");
     auto g = emu::make_repl_copy<graph>(
         dist_el.num_vertices_, dist_el.num_edges_);
+    // Assign vertex ID's as position in the list
+    parallel::for_each(fixed,
+        g->vertex_id_.begin(), g->vertex_id_.end(),
+        [id_begin=g->vertex_id_.begin()](long &id) {
+            // Compute index in table from the pointer
+            id = &id - id_begin;
+        }
+    );
+    // Init all vertex degrees to zero
     parallel::fill(fixed,
         g->vertex_out_degree_.begin(), g->vertex_out_degree_.end(), 0L);
 
-        // Compute degree of each vertex
+    // Compute degree of each vertex
     LOG("Computing degree of each vertex...\n");
     hooks_region_begin("calculate_degrees");
     // Initialize the degree of each vertex to zero
