@@ -77,7 +77,10 @@ parse_edge_list_file_header(FILE* fp, edge_list_file_header *header)
 {
     // Get the first line of text from the file
     char line[256];
-    fgets(line, 256, fp);
+    if (!fgets(line, 256, fp)) {
+        LOG("Failed to read edge list header\n");
+        exit(1);
+    }
     size_t line_len = strlen(line);
     header->header_length = line_len;
     // Strip endline character
