@@ -21,6 +21,9 @@ void
 print_help_and_quit()
 {
     cerr << "Usage: ./rmat_dataset_dump <rmat_args>\n";
+    cerr << "    Format 1: A-B-C-D-edges-vertices.rmat\n";
+    cerr << "    Format 2: graph500-scaleN\n";
+    cerr << "    Format 3: graph500-scaleN.mtx\n";
     die();
 }
 
@@ -214,8 +217,9 @@ public:
         shuffle_edges();
     }
 
+    // Write to file in binary format for PaperWasp/Beedrill
     void
-    dump(std::string filename)
+    dump_bin(std::string filename)
     {
         // Open output file
         FILE* fp = fopen(filename.c_str(), "wb");
@@ -231,6 +235,35 @@ public:
         fwrite(edges.begin(), sizeof(Edge), edges.size(), fp);
         // Clean up
         fclose(fp);
+    }
+
+    // Write to file in Matrix Market format for GraphBLAS
+    void
+    dump_mm(std::string filename)
+    {
+        // Open file
+        std::ofstream f(filename);
+        // Write header
+        f << "%%MatrixMarket matrix coordinate integer symmetric" << "\n";
+        f << "%%GraphBLAS GrB_BOOL\n";
+        // Number of rows == number of columns == number of vertices
+        f << args.num_vertices << " ";
+        f << args.num_vertices << " ";
+        // Number of non-zeros == number of edges
+        f << edges.size() << "\n";
+        // Write out edges
+        for (auto e : edges) {
+            // Note: The symmetric format expects the lower half of a triangular
+            // matrix (src > dst). The resulting graph will be the same
+            // since it is undirected.
+            if (e.src > e.dst) {
+                f << e.src << " " << e.dst << " 1\n";
+            } else {
+                f << e.dst << " " << e.src << " 1\n";
+            }
+        }
+        // Clean up
+        f.close();
     }
 };
 
@@ -259,6 +292,10 @@ main(int argc, const char* argv[])
     std::cerr << "Generating list of " << args.num_edges << " edges...\n";
     pg.generate_and_preprocess();
     std::cerr << "Writing to file...\n";
-    pg.dump(filename);
+    if (!strcmp(".mtx", &*filename.end() - 4)) {
+        pg.dump_mm(filename);
+    } else {
+        pg.dump_bin(filename);
+    }
     std::cerr << "...Done\n";
 }

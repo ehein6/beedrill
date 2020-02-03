@@ -30,7 +30,7 @@ struct rmat_args
         std::smatch m;
 
         std::regex r1(R"((\d+[.]\d+)-(\d+[.]\d+)-(\d+[.]\d+)-(\d+[.]\d+)-(\d+[KMGT]?)-(\d+[KMGT]?)\.rmat)");
-        std::regex r2(R"(graph500-scale(\d+))");
+        std::regex r2(R"(graph500-scale(\d+)(\.mtx)?)");
 
         if (std::regex_match(str, m, r1)) {
             args.a = std::stod(m[1]);
