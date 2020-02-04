@@ -5,13 +5,23 @@ class components
 {
 private:
     emu::repl<graph*> g_;
-    // component that this vertex belongs to
-    emu::striped_array<long> component_;
-
 public:
+    // Component that this vertex belongs to
+    emu::striped_array<long> component_;
+    // Size of each component
+    emu::striped_array<long> component_size_;
+
     explicit components(graph& g);
     components(const components& other, emu::shallow_copy);
-    long run();
+
+    struct stats {
+        // Number of components found in the graph
+        long num_components;
+        // Number of iterations required for convergence
+        long num_iters;
+    };
+    stats run();
+    void dump();
     void clear();
     bool check();
 };

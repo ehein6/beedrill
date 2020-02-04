@@ -4,6 +4,7 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include <queue>
 #include <unordered_map>
+#include <emu_cxx_utils/fill.h>
 
 using namespace emu;
 using namespace emu::parallel;
@@ -12,6 +13,7 @@ using namespace emu::execution;
 components::components(graph & g)
 : g_(&g)
 , component_(g.num_vertices())
+, component_size_(g.num_vertices())
 {
     clear();
 }
@@ -19,6 +21,7 @@ components::components(graph & g)
 components::components(const components& other, emu::shallow_copy shallow)
 : g_(other.g_)
 , component_(other.component_, shallow)
+, component_size_(other.component_size_, shallow)
 {}
 
 void
@@ -26,24 +29,32 @@ components::clear()
 {
 }
 
-long
+components::stats
 components::run()
 {
     // Put each vertex in its own component
-    parallel::for_each(component_.begin(), component_.end(), [this](long & c) {
-        long index = &c - component_.begin();
-        c = index;
-    });
+    cilk_spawn parallel::for_each(component_.begin(), component_.end(),
+        [this](long & c) {
+            long index = &c - component_.begin();
+            c = index;
+        }
+    );
+    // Set size of each component to zero
+    parallel::fill(component_size_.begin(), component_size_.end(), 0L);
+    cilk_sync;
 
-
-    while (true) {
+    long num_iters;
+    for (num_iters = 1; ; ++num_iters) {
         long changed = 0;
+        // For all edges that connect vertices in different components...
         g_->for_each_vertex([this, &changed](long src) {
             g_->for_each_out_edge(src, [this, src, &changed](long dst) {
                 long comp_src = component_[src];
                 long comp_dst = component_[dst];
                 if (comp_src == comp_dst) { return; }
 
+                // Assign the lower component ID to both
+                // This algorithm is stable for undirected graphs
                 long high_comp = std::max(comp_src, comp_dst);
                 long low_comp = std::min(comp_src, comp_dst);
                 if (high_comp == component_[high_comp]) {
@@ -53,6 +64,7 @@ components::run()
             });
         });
 
+        // No changes? We're done!
         if (!changed) break;
 
         g_->for_each_vertex([this](long v) {
@@ -61,12 +73,72 @@ components::run()
             }
         });
     }
+    // Count up the size of each component
+    parallel::for_each(component_.begin(), component_.end(),
+        [this](long c) { emu::remote_add(&component_size_[c], 1); }
+    );
 
-    // TODO return unique number of components
-    return 0;
+    stats s;
+    s.num_iters = num_iters;
+    // TODO use parallel function here
+    // Count number of components
+    s.num_components = std::count_if(
+        component_size_.begin(), component_size_.end(),
+        [](long size) { return size > 0; }
+    );
+
+    return s;
 }
 
-// Do serial triangle count
+void
+components::dump()
+{
+    long max_component = *std::max_element(component_.begin(), component_.end());
+
+    auto print_range = [](bool first_entry, long c, long first, long last) {
+        if (first_entry) {
+            printf("Component %li: ", c);
+        } else {
+            printf(", ");
+        }
+        if (first == last) {
+            printf("%li", first);
+        } else {
+            printf("%li-%li", first, last);
+        }
+    };
+
+    // For each component...
+    for (long c = 0; c <= max_component; ++c) {
+        long range_start = -1;
+        bool first_entry = true;
+        for (long v = 0; v < g_->num_vertices(); ++v) {
+            // Is the vertex in the component?
+            if (c == component_[v]) {
+                // Record the start of a range of vertices
+                if (range_start < 0) { range_start = v; }
+            } else {
+                // End of the range
+                if (range_start >= 0) {
+                    // Print start of line only once, omit for empty components
+                    // Print vertices as a range if possible
+                    print_range(first_entry, c, range_start, v - 1);
+                    // Reset range
+                    range_start = -1;
+                    first_entry = false;
+                }
+            }
+        }
+        // Print last range
+        if (range_start >= 0) {
+            print_range(first_entry, c, range_start, g_->num_vertices() - 1);
+        }
+        if (!first_entry) { printf("\n"); }
+        fflush(stdout);
+    }
+}
+
+// Do serial BFS on each component to check labels
 bool
 components::check()
 {
