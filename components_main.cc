@@ -14,6 +14,7 @@ const struct option long_options[] = {
     {"check_graph"      , no_argument},
     {"dump_graph"       , no_argument},
     {"check_results"    , no_argument},
+    {"dump_results"     , no_argument},
     {"help"             , no_argument},
     {nullptr}
 };
@@ -24,11 +25,12 @@ print_help(const char* argv0)
     LOG( "Usage: %s [OPTIONS]\n", argv0);
     LOG("\t--graph_filename     Path to graph file to load\n");
     LOG("\t--distributed_load   Load the graph from all nodes at once (File must exist on all nodes, use absolute path).\n");
-    LOG("\t--num_trials         Run BFS this many times.\n");
+    LOG("\t--num_trials         Run the algorithm this many times.\n");
     LOG("\t--dump_edge_list     Print the edge list to stdout after loading (slow)\n");
     LOG("\t--check_graph        Validate the constructed graph against the edge list (slow)\n");
     LOG("\t--dump_graph         Print the graph to stdout after construction (slow)\n");
     LOG("\t--check_results      Validate the results (slow)\n");
+    LOG("\t--dump_results       Print the results to stdout (slow)\n");
     LOG("\t--help               Print command line help\n");
 }
 
@@ -41,6 +43,7 @@ struct components_args
     bool check_graph;
     bool dump_graph;
     bool check_results;
+    bool dump_results;
 
     static components_args
     parse(int argc, char *argv[])
@@ -53,6 +56,7 @@ struct components_args
         args.check_graph = false;
         args.dump_graph = false;
         args.check_results = false;
+        args.dump_results = false;
 
         int option_index;
         while (true) {
@@ -81,6 +85,8 @@ struct components_args
                 args.dump_graph = true;
             } else if (!strcmp(option_name, "check_results")) {
                 args.check_results = true;
+            } else if (!strcmp(option_name, "dump_results")) {
+                args.dump_results = true;
             } else if (!strcmp(option_name, "help")) {
                 print_help(argv[0]);
                 exit(1);
@@ -138,26 +144,34 @@ int main(int argc, char ** argv)
     auto cc = emu::make_repl_copy<components>(*g);
 
     // Run multiple trials of the algorithm
-    for (long s = 0; s < args.num_trials; ++s) {
+    for (long trial = 0; trial < args.num_trials; ++trial) {
         // Clear out the data structures
         cc->clear();
 
+        hooks_set_attr_i64("trial", trial);
+
         LOG("Finding connected components...\n");
         hooks_region_begin("components");
-        cc->run();
+        components::stats s = cc->run();
+        hooks_set_attr_i64("num_iters", s.num_iters);
+        hooks_set_attr_i64("num_components", s.num_components);
         double time_ms = hooks_region_end();
 
-        LOG("Found components in %3.2f ms \n", time_ms);
+        LOG("Found %li components in %li iterations (%3.2f ms) \n",
+            s.num_components, s.num_iters, time_ms);
     }
 
     if (args.check_results) {
-        LOG("Checking results...\n");
+        LOG("Checking results...");
         if (cc->check()) {
             LOG("PASS\n");
         } else {
             LOG("FAIL\n");
             success = false;
         }
+    }
+    if (args.dump_results) {
+        cc->dump();
     }
 
     return !success;
