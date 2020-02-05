@@ -8,7 +8,7 @@
 
 using namespace emu;
 using namespace emu::parallel;
-using namespace emu::execution;
+
 
 components::components(graph & g)
 : g_(&g)

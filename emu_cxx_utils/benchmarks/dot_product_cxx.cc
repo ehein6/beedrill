@@ -6,7 +6,7 @@
 #include <common.h>
 
 using namespace emu;
-using namespace emu::execution;
+
 
 struct dot_bench {
     emu::striped_array<long> a_, b_;

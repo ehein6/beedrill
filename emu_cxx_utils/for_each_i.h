@@ -8,7 +8,7 @@ namespace parallel {
 template<typename Index, typename Function, typename... Args>
 void
 for_each_i(
-    emu::execution::sequenced_policy,
+    emu::sequenced_policy,
     Index begin, Index end, Function worker, Args&&... args
 ){
     for (Index i = begin; i != end; ++i) {
@@ -20,11 +20,11 @@ for_each_i(
 template<typename Index, typename Function, typename... Args>
 void
 for_each_i(
-    emu::execution::parallel_policy policy,
+    emu::parallel_policy policy,
     Index begin, Index end, Function worker, Args&&... args
 ){
     auto grain = policy.grain_;
-    auto radix = emu::execution::spawn_radix;
+    auto radix = emu::spawn_radix;
     Index size;
 
     // Recursive spawn
@@ -46,14 +46,14 @@ for_each_i(
         for (Index first = begin; first < end; first += grain) {
             long last = first + grain <= end ? first + grain : end;
             cilk_spawn for_each_i(
-                execution::sequenced_policy(),
+                sequenced_policy(),
                 first, last, worker, std::forward<Args>(args)...
             );
         }
     } else {
         // Serial execution
         for_each_i(
-            execution::sequenced_policy(),
+            sequenced_policy(),
             begin, end, worker, std::forward<Args>(args)...
         );
     }
@@ -63,18 +63,18 @@ for_each_i(
 template<typename Index, typename Function, typename... Args>
 void
 for_each_i(
-    emu::execution::parallel_limited_policy policy,
+    emu::parallel_limited_policy policy,
     Index begin, Index end, Function worker, Args&&... args
 ){
     // Recalculate grain size to limit thread count
-    auto grain = emu::execution::limit_grain(
+    auto grain = emu::limit_grain(
         policy.grain_,
         end-begin,
-        emu::execution::threads_per_nodelet
+        emu::threads_per_nodelet
     );
     // Forward to unlimited parallel version
     for_each_i(
-        emu::execution::parallel_policy(grain),
+        emu::parallel_policy(grain),
         begin, end, worker, std::forward<Args>(args)...
     );
 }
@@ -83,13 +83,13 @@ for_each_i(
 template<typename Index, typename Function, typename... Args>
 void
 for_each_i(
-    emu::execution::parallel_dynamic_policy policy,
+    emu::parallel_dynamic_policy policy,
     Index begin, Index end, Function worker, Args&&... args
 ){
     long next_i = begin;
     // Spawn worker threads
     // TODO do recursive spawn according to radix parameter
-    for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+    for (long t = 0; t < threads_per_nodelet; ++t) {
         cilk_spawn dynamic_worker(
             next_i, end, worker, std::forward<Args>(args)...
         );

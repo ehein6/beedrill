@@ -126,7 +126,7 @@ public:
 
     template<class Function>
     void for_each_vertex(Function worker) {
-        for_each_vertex(emu::execution::default_policy, worker);
+        for_each_vertex(emu::default_policy, worker);
     }
 
     template<class Policy, class Function>
@@ -141,7 +141,7 @@ public:
     template<class Function>
     void for_each_out_edge(long src, Function worker)
     {
-        for_each_out_edge(emu::execution::default_policy, src, worker);
+        for_each_out_edge(emu::default_policy, src, worker);
     }
 
     // Optimized functor for iterating over edge lists
@@ -178,7 +178,7 @@ public:
     };
 
     template<class Function>
-    void for_each_out_edge_grouped(emu::execution::parallel_policy policy, long src, Function worker)
+    void for_each_out_edge_grouped(emu::parallel_policy policy, long src, Function worker)
     {
         auto begin = out_edges_begin(src);
         auto end = out_edges_end(src);
@@ -193,7 +193,7 @@ public:
     }
 
     template<class Function>
-    void for_each_out_edge_grouped(emu::execution::sequenced_policy policy, long src, Function worker)
+    void for_each_out_edge_grouped(emu::sequenced_policy policy, long src, Function worker)
     {
         edge_visitor<Function>{worker}(out_edges_begin(src), out_edges_end(src));
     }
@@ -234,7 +234,7 @@ public:
     };
 
     template<class Function>
-    void find_out_edge_grouped(emu::execution::sequenced_policy policy, long src, Function worker)
+    void find_out_edge_grouped(emu::sequenced_policy policy, long src, Function worker)
     {
         edge_searcher<Function>{worker}(out_edges_begin(src), out_edges_end(src));
     }
@@ -244,7 +244,7 @@ public:
     sort_edge_lists(Compare comp)
     {
         hooks_region_begin("sort_edge_lists");
-        for_each_vertex([&](long v){
+        for_each_vertex(emu::dyn, [&](long v){
             std::sort(out_edges_begin(v), out_edges_end(v), comp);
         });
         hooks_region_end();

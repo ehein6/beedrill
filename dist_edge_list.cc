@@ -7,7 +7,7 @@
 #include <emu_cxx_utils/for_each.h>
 
 using namespace emu;
-using namespace emu::execution;
+
 
 struct edge {
     long src;

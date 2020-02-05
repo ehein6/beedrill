@@ -6,7 +6,7 @@
 #include <common.h>
 
 using namespace emu;
-using namespace emu::execution;
+
 
 struct reduce_bench {
     emu::striped_array<long> a_;

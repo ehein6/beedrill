@@ -46,20 +46,15 @@ bool is_striped(Iterator iter)
 
 }
 
-
-namespace emu::execution {
-
-
-
-struct policy_base {};
+namespace emu {
 
 // Execute loop iterations one at a time, in a single thread
-struct sequenced_policy : public policy_base {};
+struct sequenced_policy {};
 // Create N worker threads, which dynamically pull loop iterations off a work queue
-struct parallel_dynamic_policy : public policy_base {};
+struct parallel_dynamic_policy {};
 
 // Base class for policies that take a grain size
-struct grain_policy : public policy_base
+struct grain_policy
 {
     long grain_;
     explicit constexpr grain_policy(long grain) : grain_(grain) {}
@@ -120,7 +115,4 @@ compute_fixed_grain(parallel_fixed_policy policy, Iterator begin, Iterator end)
     return parallel_policy(grain);
 }
 
-
-
-
-} // end namespace emu::execution
+} // end namespace emu

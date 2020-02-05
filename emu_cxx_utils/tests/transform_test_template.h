@@ -33,7 +33,7 @@ TYPED_TEST_P(transform_test, cast_to_double)
     }
 
     // Convert to doubles in parallel
-    emu::parallel::transform( emu::execution::default_policy,
+    emu::parallel::transform( emu::default_policy,
         array_of_longs.begin(), array_of_longs.end(), array_of_doubles.begin(),
         [&](long i) {
             return (double)i;
@@ -62,7 +62,7 @@ TYPED_TEST_P(transform_test, stream_add)
     }
 
     // Add arrays in parallel
-    emu::parallel::transform(emu::execution::default_policy,
+    emu::parallel::transform(emu::default_policy,
         a.begin(), a.end(), b.begin(), c.begin(),
         [&](long x, long y) {
             return x + y;

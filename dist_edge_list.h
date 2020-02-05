@@ -70,6 +70,6 @@ struct dist_edge_list
     template<class Function>
     void forall_edges(Function worker)
     {
-        forall_edges(emu::execution::default_policy, worker);
+        forall_edges(emu::default_policy, worker);
     }
 };

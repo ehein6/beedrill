@@ -35,7 +35,7 @@ namespace emu {
 
 template<typename T, typename Function>
 void repl_for_each(
-    execution::sequenced_policy,
+    sequenced_policy,
     T &repl_ref, Function worker
 ){
     if (emu::pmanip::is_repl(&repl_ref)) {
@@ -50,7 +50,7 @@ void repl_for_each(
 
 template<typename T, typename Function>
 void repl_for_each(
-    execution::parallel_policy,
+    parallel_policy,
     T & repl_ref, Function worker
 ){
     if (emu::pmanip::is_repl(&repl_ref)) {
