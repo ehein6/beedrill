@@ -6,7 +6,6 @@
 
 
 using namespace emu;
-using namespace emu::execution;
 
 pagerank::pagerank(graph & g)
 : g_(&g)
@@ -52,7 +51,9 @@ pagerank::run (int max_iters, double damping, double epsilon)
 
         g_->for_each_vertex([&](long v) {
             // Compute outgoing contribution for each vertex
-            contrib_[v] = scores_[v] / g_->out_degree(v);
+            long degree = g_->out_degree(v);
+            contrib_[v] = degree == 0 ? 0 :
+                scores_[v] / degree;
         });
 
         g_->for_each_vertex([&](long src) {
