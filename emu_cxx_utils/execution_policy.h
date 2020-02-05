@@ -4,10 +4,6 @@
 #include "pointer_manipulation.h"
 #include "stride_iterator.h"
 
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/zip_iterator.hpp>
-#include <boost/fusion/adapted/std_tuple.hpp>
-
 #ifndef EMU_CXX_SPAWN_RADIX
 #define EMU_CXX_SPAWN_RADIX 16
 #endif
