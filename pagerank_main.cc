@@ -44,7 +44,7 @@ struct pagerank_args
     bool distributed_load = false;
     long num_trials = 1;
     long max_iterations = 20;
-    double epsilon = 1e-4;
+    double epsilon = 1e-5;
     double damping = 0.85;
     bool sort_edge_blocks = false;
     bool dump_edge_list = false;
