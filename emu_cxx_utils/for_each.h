@@ -9,9 +9,6 @@
 #include "intrinsics.h"
 #include "pointer_manipulation.h"
 
-#include <boost/iterator/zip_iterator.hpp>
-#include <boost/tuple/tuple.hpp>
-
 namespace emu::parallel {
 namespace detail {
 
