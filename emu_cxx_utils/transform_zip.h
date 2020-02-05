@@ -11,7 +11,7 @@ namespace emu::parallel {
 template<class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
     class UnaryOperation,
     // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+    std::enable_if_t<is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 void
 transform(
@@ -39,14 +39,14 @@ transform(
     ForwardIt2 first2,
     UnaryOperation unary_op)
 {
-    transform(execution::default_policy,
+    transform(default_policy,
         first1, last1, first2, unary_op);
 }
 
 template<class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
     class ForwardIt3, class BinaryOperation,
     // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+    std::enable_if_t<is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 void
 transform(
@@ -78,7 +78,7 @@ transform(
     ForwardIt3 first3,
     BinaryOperation binary_op)
 {
-    transform(execution::default_policy,
+    transform(default_policy,
         first1, last1, first2, first3, binary_op);
 }
 

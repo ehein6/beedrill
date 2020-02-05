@@ -6,7 +6,7 @@
 #include <common.h>
 
 using namespace emu;
-using namespace emu::execution;
+
 
 struct stream {
     emu::striped_array<long> a_, b_, c_;

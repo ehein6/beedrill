@@ -5,7 +5,7 @@
 #include <common.h>
 
 using namespace emu;
-using namespace emu::execution;
+
 
 struct stream {
     std::vector<long> a_, b_, c_;

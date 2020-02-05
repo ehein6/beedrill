@@ -33,7 +33,7 @@ namespace detail {
 //// Specialized for summing up longs
 //template<class ForwardIt, class BinaryOp>
 //void
-//reduce_with_remotes(execution::parallel_policy policy,
+//reduce_with_remotes(parallel_policy policy,
 //    ForwardIt first, ForwardIt last, long &parent_sum, BinaryOp binary_op)
 //{
 //
@@ -59,7 +59,7 @@ namespace detail {
 //
 template<class ForwardIt, class T, class BinaryOp>
 T
-reduce(execution::sequenced_policy policy, ForwardIt first, ForwardIt last,
+reduce(sequenced_policy policy, ForwardIt first, ForwardIt last,
        T init, BinaryOp binary_op)
 {
     return std::accumulate(first, last, init, binary_op);
@@ -70,7 +70,7 @@ long num_spawns(long size, long grain)
     long num_spawns = 0;
     // Convert from number of elements to number of chunks
     long num_chunks = (size + grain - 1) / grain;
-    const long radix = emu::execution::spawn_radix;
+    const long radix = emu::spawn_radix;
     // Recursive spawn: 1 per time we divide the range in two
     while (num_chunks / 2 > radix) {
         num_chunks /= 2;
@@ -84,12 +84,12 @@ long num_spawns(long size, long grain)
 
 template<class ForwardIt, class T, class BinaryOp>
 T
-reduce(execution::parallel_policy policy,
+reduce(parallel_policy policy,
     stride_iterator<ForwardIt> first, stride_iterator<ForwardIt> last,
     T init, BinaryOp binary_op)
 {
     auto grain = policy.grain_;
-    auto radix = emu::execution::spawn_radix;
+    auto radix = emu::spawn_radix;
     typename std::iterator_traits<ForwardIt>::difference_type size;
 
     // Allocate a private T for each thread that will be spawned
@@ -122,7 +122,7 @@ reduce(execution::parallel_policy policy,
         // Spawned thread will copy result to i'th partial sum
         // NOTE: this line causes an internal compiler error on GCC 7
         partial_sums[tid] = cilk_spawn reduce(
-            execution::seq, begin, end, init, binary_op
+            seq, begin, end, init, binary_op
         );
         // Moving the increment out of the spawn expression to avoid possible race
         // This shouldn't be necessary, but the compiler gets this wrong
@@ -131,18 +131,18 @@ reduce(execution::parallel_policy policy,
     // Wait for all partial sums to be valid
     cilk_sync;
     // Reduce partial sums in this thread
-    return reduce(execution::seq, partial_sums.begin(), partial_sums.end(),
+    return reduce(seq, partial_sums.begin(), partial_sums.end(),
         init, binary_op);
 }
 
 template<class ForwardIt, class T, class BinaryOp>
 T
-reduce(execution::parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
+reduce(parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
        T init, BinaryOp binary_op)
 {
     // Recalculate grain size to limit thread count
     // and forward to unlimited parallel version
-    return reduce(execution::compute_fixed_grain(policy, first, last),
+    return reduce(compute_fixed_grain(policy, first, last),
         first, last, init, binary_op);
 }
 
@@ -152,7 +152,7 @@ reduce(execution::parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
 
 template<class ExecutionPolicy, class ForwardIt, class T, class BinaryOp,
     // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+    std::enable_if_t<is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 T
 reduce(ExecutionPolicy policy, ForwardIt first, ForwardIt last,
@@ -171,7 +171,7 @@ reduce(ForwardIt first, ForwardIt last,
     T init = typename std::iterator_traits<ForwardIt>::value_type{},
     BinaryOp binary_op = std::plus<>())
 {
-    return detail::reduce(execution::default_policy,
+    return detail::reduce(default_policy,
         stride_iterator<ForwardIt>(first),
         stride_iterator<ForwardIt>(last),
         init, binary_op);

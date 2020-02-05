@@ -16,7 +16,7 @@ namespace detail {
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-   execution::sequenced_policy,
+   sequenced_policy,
    Iterator begin, Iterator end, UnaryFunction worker
 ) {
    // Forward to standard library implementation
@@ -27,7 +27,7 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-   execution::parallel_policy policy,
+   parallel_policy policy,
    Iterator begin, Iterator end,
    UnaryFunction worker
 ) {
@@ -38,7 +38,7 @@ for_each(
        // Last iteration may be smaller if things don't divide evenly
        auto last = begin + grain <= end ? begin + grain : end;
        cilk_spawn_at(ptr_from_iter(begin)) for_each(
-           execution::seq,
+           seq,
            begin, last, worker
        );
    }
@@ -48,13 +48,13 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-   execution::parallel_fixed_policy policy,
+   parallel_fixed_policy policy,
    Iterator begin, Iterator end, UnaryFunction worker
 ) {
    // Recalculate grain size to limit thread count
    // and forward to unlimited parallel version
    for_each(
-       execution::compute_fixed_grain(policy, begin, end),
+       compute_fixed_grain(policy, begin, end),
        begin, end, worker
    );
 }
@@ -64,14 +64,14 @@ for_each(
 template<class T, class UnaryFunction>
 void
 for_each(
-   execution::parallel_dynamic_policy,
+   parallel_dynamic_policy,
    T* begin, T* end,
    UnaryFunction worker
 ) {
    // Shared pointer to the next item to process
    T * next = begin;
    // Create a worker thread for each execution slot
-   for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+   for (long t = 0; t < threads_per_nodelet; ++t) {
        cilk_spawn [&](){
            // Atomically grab the next item off the list
            for (T * item = atomic_addms(&next, 1);
@@ -91,7 +91,7 @@ for_each(
 template<class T, class UnaryFunction>
 void
 for_each(
-   execution::parallel_dynamic_policy,
+   parallel_dynamic_policy,
    stride_iterator<T*> s_begin, stride_iterator<T*> s_end,
    UnaryFunction worker
 ) {
@@ -99,7 +99,7 @@ for_each(
    T * next = &*s_begin;
    T * end = &*s_end;
    // Create a worker thread for each execution slot
-   for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+   for (long t = 0; t < threads_per_nodelet; ++t) {
        cilk_spawn [&](){
            // Atomically grab the next item off the list
            for (T * item = atomic_addms(&next, s_begin.stride);
@@ -117,7 +117,7 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
-   execution::sequenced_policy,
+   sequenced_policy,
    Iterator begin, Iterator end, UnaryFunction worker
 ) {
    // Forward to standard library implementation
@@ -129,7 +129,7 @@ striped_for_each(
 template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
-   execution::parallel_policy policy,
+   parallel_policy policy,
    Iterator begin, Iterator end,
    UnaryFunction worker
 ) {
@@ -170,7 +170,7 @@ striped_for_each(
 template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
-   execution::parallel_dynamic_policy policy,
+   parallel_dynamic_policy policy,
    Iterator begin, Iterator end,
    UnaryFunction worker
 ) {
@@ -208,13 +208,13 @@ striped_for_each(
 template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
-   execution::parallel_fixed_policy policy,
+   parallel_fixed_policy policy,
    Iterator begin, Iterator end, UnaryFunction worker
 ) {
    // Recalculate grain size to limit thread count
    // and forward to unlimited parallel version
    striped_for_each(
-       execution::compute_fixed_grain(policy, begin, end),
+       compute_fixed_grain(policy, begin, end),
        begin, end, worker
    );
 }
@@ -224,7 +224,7 @@ striped_for_each(
 
 template<class ExecutionPolicy, class Iterator, class UnaryFunction,
    // Disable if first argument is not an execution policy
-   std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+   std::enable_if_t<is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 void
 for_each(
@@ -244,7 +244,7 @@ template<class Iterator, class UnaryFunction>
 void
 for_each(Iterator begin, Iterator end, UnaryFunction worker
 ){
-   for_each(emu::execution::default_policy, begin, end, worker);
+   for_each(emu::default_policy, begin, end, worker);
 }
 
 } // end namespace emu::parallel

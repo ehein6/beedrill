@@ -14,7 +14,7 @@ namespace detail {
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-    execution::sequenced_policy,
+    sequenced_policy,
     Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // Forward to standard library implementation
@@ -25,12 +25,12 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-    execution::parallel_policy policy,
+    parallel_policy policy,
     stride_iterator<Iterator> begin, stride_iterator<Iterator> end,
     UnaryFunction worker
 ) {
     auto grain = policy.grain_;
-    auto radix = execution::spawn_radix;
+    auto radix = spawn_radix;
     typename std::iterator_traits<Iterator>::difference_type size;
 
     // Recursive spawn
@@ -54,7 +54,7 @@ for_each(
         auto last = begin + grain <= end ? begin + grain : end;
         cilk_migrate_hint(ptr_from_iter(begin));
         cilk_spawn for_each(
-            execution::seq,
+            seq,
             begin, last, worker
         );
     }
@@ -66,7 +66,7 @@ for_each(
 template<class T, class UnaryFunction>
 void
 for_each(
-    execution::parallel_dynamic_policy,
+    parallel_dynamic_policy,
     stride_iterator<T*> s_begin, stride_iterator<T*> s_end,
     UnaryFunction worker
 ) {
@@ -74,7 +74,7 @@ for_each(
     T * next = static_cast<T*>(s_begin);
     T * end = static_cast<T*>(s_end);
     // Create a worker thread for each execution slot
-    for (long t = 0; t < execution::threads_per_nodelet; ++t) {
+    for (long t = 0; t < threads_per_nodelet; ++t) {
         cilk_spawn [&next, end, worker](){
             // Atomically grab the next item off the list
             for (T * item = atomic_addms(&next, 1);
@@ -91,13 +91,13 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 for_each(
-    execution::parallel_fixed_policy policy,
+    parallel_fixed_policy policy,
     Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // Recalculate grain size to limit thread count
     // and forward to unlimited parallel version
     for_each(
-        execution::compute_fixed_grain(policy, begin, end),
+        compute_fixed_grain(policy, begin, end),
         begin, end, worker
     );
 }
@@ -106,7 +106,7 @@ for_each(
 
 template<class ExecutionPolicy, class Iterator, class UnaryFunction,
     // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+    std::enable_if_t<is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 void
 for_each(
@@ -125,7 +125,7 @@ template<class Iterator, class UnaryFunction>
 void
 for_each(Iterator begin, Iterator end, UnaryFunction worker
 ){
-    for_each(emu::execution::default_policy, begin, end, worker);
+    for_each(emu::default_policy, begin, end, worker);
 }
 
 

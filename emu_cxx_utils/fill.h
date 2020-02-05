@@ -5,7 +5,7 @@ namespace emu::parallel {
 
 template<typename ExecutionPolicy, typename Iterator, typename T,
     // Disable if first argument is not an execution policy
-    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, int> = 0
+    std::enable_if_t<is_execution_policy_v<ExecutionPolicy>, int> = 0
 >
 void
 fill(ExecutionPolicy policy, Iterator first, Iterator last, const T& value)
@@ -19,7 +19,7 @@ template<typename Iterator, typename T>
 void
 fill(Iterator first, Iterator last, const T& value)
 {
-    fill(execution::default_policy, first, last, value);
+    fill(default_policy, first, last, value);
 }
 
 }

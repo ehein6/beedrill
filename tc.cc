@@ -7,7 +7,6 @@
 
 using namespace emu;
 using namespace emu::parallel;
-using namespace emu::execution;
 
 triangle_count::triangle_count(graph & g)
 : g_(&g)

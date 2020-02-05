@@ -5,7 +5,6 @@
 #include <emu_cxx_utils/for_each.h>
 
 using namespace emu;
-using namespace emu::execution;
 
 hybrid_bfs::hybrid_bfs(graph & g)
 : g_(&g)

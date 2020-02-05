@@ -53,7 +53,7 @@ public:
     clear()
     {
         emu::parallel::striped_for_each(
-            emu::execution::parallel_limited_policy(1024),
+            emu::parallel_limited_policy(1024),
             words_.begin(), words_.end(),
             [](long& w) {
                 w = 0;

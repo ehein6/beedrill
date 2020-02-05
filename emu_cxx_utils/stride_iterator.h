@@ -8,33 +8,30 @@ namespace emu {
 /**
  * An iterator wrapper, which advances the underlying iterator by several elements at a time.
  *
- * @tparam I Wrapped iterator type
+ * @tparam Iterator Wrapped iterator type
  */
-template<typename I>
+template<class Iterator>
 class stride_iterator
 {
 public:
     // Standard iterator typedefs for interop with C++ algorithms
-    typedef stride_iterator self_type;
-    typedef typename std::iterator_traits<I>::iterator_category iterator_category;
-    typedef typename std::iterator_traits<I>::value_type value_type;
-    typedef typename std::iterator_traits<I>::difference_type difference_type;
-    typedef typename std::iterator_traits<I>::pointer pointer;
-    typedef typename std::iterator_traits<I>::reference reference;
-
-    using wrapped_iterator = I;
-
+    using self_type = stride_iterator;
+    using iterator_category = typename std::iterator_traits<Iterator>::iterator_category;
+    using value_type = typename std::iterator_traits<Iterator>::value_type;
+    using difference_type = typename std::iterator_traits<Iterator>::difference_type;
+    using pointer = typename std::iterator_traits<Iterator>::pointer;
+    using reference = typename std::iterator_traits<Iterator>::reference;
 private:
     // The wrapped iterator type
-    I it;
+    Iterator it;
 public:
     // The amount to add on each increment
     difference_type stride;
 
     // Create stride iterator from another iterator type
-    stride_iterator(I it, difference_type stride=1) : it(it), stride(stride) {}
+    stride_iterator(Iterator it, difference_type stride=1) : it(it), stride(stride) {}
     // Convert back to
-    explicit operator wrapped_iterator() { return it; }
+    explicit operator Iterator() { return it; }
 
     reference  operator*()                      { return *it; }
     reference  operator*() const                { return *it; }

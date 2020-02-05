@@ -7,7 +7,7 @@ namespace detail {
 template<class ForwardIt1, class ForwardIt2, class UnaryOperation>
 ForwardIt2
 transform(
-    execution::sequenced_policy policy,
+    sequenced_policy policy,
     ForwardIt1 first1, ForwardIt1 last1,
     ForwardIt2 first2,
     UnaryOperation unary_op)
@@ -20,13 +20,13 @@ transform(
 template<class ForwardIt1, class ForwardIt2, class UnaryOperation>
 void
 transform(
-    execution::parallel_policy policy,
+    parallel_policy policy,
     stride_iterator<ForwardIt1> first1, stride_iterator<ForwardIt1> last1,
     stride_iterator<ForwardIt2> first2,
     UnaryOperation unary_op)
 {
     auto grain = policy.grain_;
-    auto radix = emu::execution::spawn_radix;
+    auto radix = emu::spawn_radix;
     typename std::iterator_traits<ForwardIt1>::difference_type size;
 
     // Recursive spawn
@@ -52,7 +52,7 @@ transform(
     for (; first1 < last1; first1 += grain, first2 += grain) {
         auto last = first1 + grain <= last1 ? first1 + grain : last1;
         cilk_spawn_at(&*first1) transform(
-            execution::seq,
+            seq,
             first1, last, first2, unary_op
         );
     }
@@ -60,7 +60,7 @@ transform(
 
 template<class ForwardIt1, class ForwardIt2, class UnaryOperation>
 void transform(
-    execution::parallel_fixed_policy policy,
+    parallel_fixed_policy policy,
     ForwardIt1 first1, ForwardIt1 last1,
     ForwardIt2 first2,
     UnaryOperation unary_op)
@@ -68,7 +68,7 @@ void transform(
     // Recalculate grain size to limit thread count
     // and forward to unlimited parallel version
     transform(
-        execution::compute_fixed_grain(policy, first1, last1),
+        compute_fixed_grain(policy, first1, last1),
         first1, last1, first2, unary_op
     );
 }

@@ -17,7 +17,6 @@ template<typename T>
 class repl_iterator
 {
 public:
-    // TODO Typedef to allow converting between striped/sequential versions
     // Standard iterator typedefs for interop with C++ algorithms
     typedef repl_iterator self_type;
     typedef typename std::iterator_traits<T*>::iterator_category iterator_category;

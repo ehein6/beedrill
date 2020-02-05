@@ -11,7 +11,7 @@
 #include "dist_edge_list.h"
 
 using namespace emu;
-using namespace emu::execution;
+
 
 static inline long *
 grab_edges(long * volatile * ptr, long num_edges)
