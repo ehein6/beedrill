@@ -40,13 +40,14 @@ operator+=(emu::repl<double>& lhs, double rhs)
     } while (old_value != atomic_cas(my_view, old_value, new_value));
 }
 
-void
+int
 pagerank::run (int max_iters, double damping, double epsilon)
 {
     double init_score = 1.0 / g_->num_vertices();
     double base_score = (1.0 - damping) / g_->num_vertices();
     parallel::fill(scores_.begin(), scores_.end(), init_score);
-    for (int iter = 0; iter < max_iters; ++iter) {
+    int iter;
+    for (iter = 0; iter < max_iters; ++iter) {
         error_ = 0;
 
         g_->for_each_vertex([&](long v) {
@@ -68,10 +69,10 @@ pagerank::run (int max_iters, double damping, double epsilon)
             error_ += fabs(scores_[src] - old_score);
         });
         double err = emu::repl_reduce(error_, std::plus<>());
-        printf(" %2d    %lf\n", iter, err);
         if (err < epsilon)
             break;
     }
+    return iter + 1;
 }
 
 void
