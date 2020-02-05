@@ -171,7 +171,8 @@ int main(int argc, char ** argv)
         LOG("Computing PageRank...\n");
         // Run the BFS
         hooks_region_begin("pagerank");
-        pr->run(args.max_iterations, args.damping, args.epsilon);
+        int num_iters = pr->run(args.max_iterations, args.damping, args.epsilon);
+        hooks_set_attr_i64("num_iters", num_iters);
         double time_ms = hooks_region_end();
         if (args.check_results) {
             LOG("Checking results...\n");
