@@ -342,8 +342,10 @@ public:
     }
 };
 
+// TODO implement repl_iterator, then this can be merged with regular reduce()
+// TODO missing impl for repl_copy and repl_ctor
 template<typename T, typename F>
-T repl_reduce(T& ref, F reduce)
+T repl_reduce(repl<T>& ref, F reduce)
 {
     T value{};
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
