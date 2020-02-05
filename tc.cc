@@ -18,6 +18,7 @@ triangle_count::triangle_count(graph & g)
 triangle_count::triangle_count(const triangle_count& other, emu::shallow_copy)
 : g_(other.g_)
 , num_triangles_(other.num_triangles_)
+, num_twopaths_(other.num_twopaths_)
 {}
 
 void
@@ -40,6 +41,8 @@ triangle_count::count_triangles(long u)
         // using a binary search
         auto vw_begin = g_->out_edges_begin(v);
         auto vw_end = std::lower_bound(vw_begin, g_->out_edges_end(v), v);
+        // Record each u->v->w as a two-path
+        remote_add(&num_twopaths_, std::distance(vw_begin, vw_end));
         // Iterator over edges of u
         auto p_uw = g_->out_edges_begin(u);
         for_each(seq, vw_begin, vw_end, [this, &p_uw](long w){
@@ -55,11 +58,15 @@ triangle_count::count_triangles(long u)
     });
 }
 
-long
+triangle_count::stats
 triangle_count::run()
 {
-    g_->for_each_vertex(parallel_policy(1), [&](long u){ count_triangles(u); });
-    return repl_reduce(num_triangles_, std::plus<>());
+    g_->for_each_vertex(dyn, [this](long u){ count_triangles(u); });
+    stats s;
+    s.num_triangles = cilk_spawn repl_reduce(num_triangles_, std::plus<>());
+    s.num_twopaths =             repl_reduce(num_twopaths_, std::plus<>());
+    cilk_sync;
+    return s;
 }
 
 // Do serial triangle count

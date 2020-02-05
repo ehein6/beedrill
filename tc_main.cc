@@ -141,19 +141,22 @@ int main(int argc, char ** argv)
     auto tc = emu::make_repl_copy<triangle_count>(*g);
 
     // Run multiple trials of the algorithm
-    for (long s = 0; s < args.num_trials; ++s) {
+    for (long trial = 0; trial < args.num_trials; ++trial) {
         // Clear out the data structures
         tc->clear();
 
         LOG("Counting triangles...\n");
         hooks_region_begin("tc");
-        long num_triangles = tc->run();
+        triangle_count::stats s = tc->run();
+        hooks_set_attr_i64("num_triangles", s.num_triangles);
+        hooks_set_attr_i64("num_twopaths", s.num_twopaths);
         double time_ms = hooks_region_end();
 
-        LOG("Found %li triangles in %3.2f ms, %3.2f Mega-Tris/s \n",
-            num_triangles,
+        LOG("Found %li triangles and %li two-paths in %3.2f ms, %3.2f Mega-Tris/s \n",
+            s.num_triangles,
+            s.num_twopaths,
             time_ms,
-            (1e-6 * num_triangles) / (time_ms / 1000)
+            (1e-6 * s.num_triangles) / (time_ms / 1000)
         );
     }
 
