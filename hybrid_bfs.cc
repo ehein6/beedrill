@@ -81,17 +81,17 @@ hybrid_bfs::top_down_step_with_migrating_threads()
                 // If we are the first to visit this vertex
                 if (curr_val < 0) {
                     // Set self as parent of this vertex
-                    if (ATOMIC_CAS(parent, src, curr_val) == curr_val) {
+                    if (atomic_cas(parent, curr_val, src) == curr_val) {
                         // Add it to the queue
                         queue_.push_back(dst);
-                        REMOTE_ADD(&scout_count_, -curr_val);
+                        remote_add(&scout_count_, -curr_val);
                     }
                 }
             }
         );
     });
     // Combine per-nodelet values of scout_count
-    return emu::repl_reduce(scout_count_, std::plus<>());
+    return repl_reduce(scout_count_, std::plus<>());
 }
 
 
@@ -131,7 +131,7 @@ hybrid_bfs::bottom_up_step()
             // Add to the queue for the next frontier
             queue_.push_back(v);
             // Track number of vertices woken up in this step
-            REMOTE_ADD(&awake_count_, 1);
+            remote_add(&awake_count_, 1);
         }
     });
     return repl_reduce(awake_count_, std::plus<>());
