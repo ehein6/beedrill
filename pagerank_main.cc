@@ -183,9 +183,30 @@ int main(int argc, char ** argv)
                 success = false;
             }
         }
+
+        // Compute FLOPS per iteration:
+        // 1 FLOP per vertex: (contrib = score / degree)
+        // 1 FLOP per edge: (incoming += contrib[dst])
+        // 2 FLOPs per vertex: (scores_[src] = base_score + damping * incoming);
+        // 2 FLOPs per vertex: error_ += fabs(scores_[src] - old_score);
+        // Total 5 flops per vertex and 1 FLOP per edge, per iteration
+        double flops = num_iters * (5 * g->num_vertices() + 1 * g->num_edges());
+
+        // Compute memory traffic per iteration:
+        // 24 bytes per vertex: (contrib = score / degree)
+        // 8 bytes per edge: (incoming += contrib[dst])
+        // 8 bytes per vertex: double old_score = scores_[src];
+        // 8 bytes per vertex: (scores_[src] = base_score + damping * incoming);
+        // 16 bytes per vertex: error_ += fabs(scores_[src] - old_score);
+        // Total 56 bytes per vertex and 8 bytes per edge, per iteration
+        long bytes = num_iters * (56 * g->num_vertices() + 8 * g->num_edges());
+
         // Output results
         time_ms_all_trials += time_ms;
-        LOG("Computed PageRank in %3.2f ms\n", time_ms);
+        LOG("Computed PageRank in %i iterations (%3.2f ms, %3.0f MFLOPS, %3.0f MB/s) \n",
+            num_iters, time_ms,
+            1e-6*flops/(time_ms*1e-3),
+            1e-6*bytes/(time_ms*1e-3));
     }
     return !success;
 }
