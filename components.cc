@@ -14,6 +14,7 @@ components::components(graph & g)
 : g_(&g)
 , component_(g.num_vertices())
 , component_size_(g.num_vertices())
+, num_components_(g.num_vertices())
 {
     clear();
 }
@@ -22,6 +23,7 @@ components::components(const components& other, emu::shallow_copy shallow)
 : g_(other.g_)
 , component_(other.component_, shallow)
 , component_size_(other.component_size_, shallow)
+, num_components_(other.num_components_)
 {}
 
 void
@@ -80,12 +82,21 @@ components::run()
 
     stats s;
     s.num_iters = num_iters;
-    // TODO use parallel function here
+
+    // TODO should use parallel count_if here (can use transform_reduce)
+    // s.num_components = parallel::count_if(
+    //     component_size_.begin(), component_size_.end(),
+    //     [](long size) { return size > 0; }
+    // );
+
     // Count number of components
-    s.num_components = std::count_if(
-        component_size_.begin(), component_size_.end(),
-        [](long size) { return size > 0; }
+    num_components_ = 0;
+    for_each(component_size_.begin(), component_size_.end(),
+        [&](long size) {
+            if (size > 0) { emu::remote_add(&num_components_, 1); }
+        }
     );
+    s.num_components = emu::repl_reduce(num_components_, std::plus<>());
 
     return s;
 }

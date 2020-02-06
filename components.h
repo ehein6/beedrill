@@ -10,6 +10,8 @@ public:
     emu::striped_array<long> component_;
     // Size of each component
     emu::striped_array<long> component_size_;
+    // Number of components
+    emu::repl<long> num_components_;
 
     explicit components(graph& g);
     components(const components& other, emu::shallow_copy);
