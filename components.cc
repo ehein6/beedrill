@@ -49,8 +49,8 @@ components::run()
     for (num_iters = 1; ; ++num_iters) {
         long changed = 0;
         // For all edges that connect vertices in different components...
-        g_->for_each_vertex([this, &changed](long src) {
-            g_->for_each_out_edge(src, [this, src, &changed](long dst) {
+        g_->for_each_vertex(dyn, [this, &changed](long src) {
+            g_->for_each_out_edge(seq, src, [this, src, &changed](long dst) {
                 long comp_src = component_[src];
                 long comp_dst = component_[dst];
                 if (comp_src == comp_dst) { return; }
@@ -69,14 +69,14 @@ components::run()
         // No changes? We're done!
         if (!changed) break;
 
-        g_->for_each_vertex([this](long v) {
+        g_->for_each_vertex(fixed, [this](long v) {
             while (component_[v] != component_[component_[v]]) {
                 component_[v] = component_[component_[v]];
             }
         });
     }
     // Count up the size of each component
-    parallel::for_each(component_.begin(), component_.end(),
+    parallel::for_each(fixed, component_.begin(), component_.end(),
         [this](long c) { emu::remote_add(&component_size_[c], 1); }
     );
 
