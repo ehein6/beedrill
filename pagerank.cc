@@ -44,7 +44,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
 {
     double init_score = 1.0 / g_->num_vertices();
     double base_score = (1.0 - damping) / g_->num_vertices();
-    parallel::fill(scores_.begin(), scores_.end(), init_score);
+    fill(scores_.begin(), scores_.end(), init_score);
     int iter;
     for (iter = 0; iter < max_iters; ++iter) {
         error_ = 0;
@@ -69,7 +69,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             // Uses our special operator overload
             error_ += fabs(scores_[src] - old_score);
         });
-        double err = emu::repl_reduce(error_, std::plus<>());
+        double err = repl_reduce(error_, std::plus<>());
         if (err < epsilon)
             break;
     }
