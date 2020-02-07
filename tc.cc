@@ -56,7 +56,7 @@ triangle_count::check_edge(long u, long v)
 triangle_count::stats
 triangle_count::run()
 {
-    worklist_.clear();
+    worklist_.clear_all();
     g_->for_each_vertex(fixed, [this](long u) {
         // Use binary search to find neighbors of u that are less than u.
         auto v_begin = g_->out_edges_begin(u);

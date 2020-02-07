@@ -73,7 +73,7 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     // Spawn a thread on each nodelet to process the local queue
     // For each neighbor without a parent, add self as parent and append to queue
     scout_count_ = 0;
-    worklist_.clear();
+    worklist_.clear_all();
     queue_.forall_items([this](long src) {
         worklist_.append(src, g_->out_edges_begin(src), g_->out_edges_end(src));
     });
