@@ -10,6 +10,7 @@ using namespace emu::parallel;
 
 triangle_count::triangle_count(graph & g)
 : g_(&g)
+, worklist_(g.num_vertices())
 {
     clear();
 }
@@ -18,6 +19,7 @@ triangle_count::triangle_count(const triangle_count& other, emu::shallow_copy)
 : g_(other.g_)
 , num_triangles_(other.num_triangles_)
 , num_twopaths_(other.num_twopaths_)
+, worklist_(other.worklist_, emu::shallow_copy())
 {}
 
 void
@@ -26,41 +28,46 @@ triangle_count::clear()
     num_triangles_ = 0;
 }
 
-// Count triangles that start at vertex u
 void
-triangle_count::count_triangles(long u)
+triangle_count::check_edge(long u, long v)
 {
-    // Use binary search to find neighbors of u that are less than u.
-    auto v_begin = g_->out_edges_begin(u);
-    auto v_end = std::lower_bound(v_begin, g_->out_edges_end(u), u);
-    for_each(fixed, v_begin, v_end, [this, u](long v) {
-        // At this point we have one side of the triangle, from u to v
-        // For each edge v->w, see if we also have u->w to complete the triangle
-        // Once again, we limit ourselves to the neighbors of v that are less than v
-        // using a binary search
-        auto vw_begin = g_->out_edges_begin(v);
-        auto vw_end = std::lower_bound(vw_begin, g_->out_edges_end(v), v);
-        // Record each u->v->w as a two-path
-        remote_add(&num_twopaths_, std::distance(vw_begin, vw_end));
-        // Iterator over edges of u
-        auto p_uw = g_->out_edges_begin(u);
-        for_each(seq, vw_begin, vw_end, [this, &p_uw](long w){
-            // Now we have u->v and v->w
-            // Scan through neighbors of u, looking for w
-            while (*p_uw < w) { p_uw++; } // TODO this could use lower_bound
-            if (w == *p_uw) {
-                // Found the triangle u->v->w
-                // LOG("Found triangle %li->%li->%li\n", u, v, w);
-                remote_add(&num_triangles_, 1);
-            }
-        });
+    // At this point we have one side of the triangle, from u to v
+    // For each edge v->w, see if we also have u->w to complete the triangle
+    // Once again, we limit ourselves to the neighbors of v that are less than v
+    // using a binary search
+    auto vw_begin = g_->out_edges_begin(v);
+    auto vw_end = std::lower_bound(vw_begin, g_->out_edges_end(v), v);
+    // Record each u->v->w as a two-path
+    remote_add(&num_twopaths_, std::distance(vw_begin, vw_end));
+    // Iterator over edges of u
+    auto p_uw = g_->out_edges_begin(u);
+    for_each(seq, vw_begin, vw_end, [this, &p_uw](long w){
+        // Now we have u->v and v->w
+        // Scan through neighbors of u, looking for w
+        while (*p_uw < w) { p_uw++; }
+        if (w == *p_uw) {
+            // Found the triangle u->v->w
+            // LOG("Found triangle %li->%li->%li\n", u, v, w);
+            remote_add(&num_triangles_, 1);
+        }
     });
 }
 
 triangle_count::stats
 triangle_count::run()
 {
-    g_->for_each_vertex(dyn, [this](long u){ count_triangles(u); });
+    worklist_.clear();
+    g_->for_each_vertex(fixed, [this](long u) {
+        // Use binary search to find neighbors of u that are less than u.
+        auto v_begin = g_->out_edges_begin(u);
+        auto v_end = std::lower_bound(v_begin, g_->out_edges_end(u), u);
+        if (v_begin != v_end) {
+            worklist_.append(u, v_begin, v_end);
+        }
+    });
+
+    worklist_.process_all(dyn, [this](long u, long v) { check_edge(u, v); });
+
     stats s;
     s.num_triangles = cilk_spawn repl_reduce(num_triangles_, std::plus<>());
     s.num_twopaths =             repl_reduce(num_twopaths_, std::plus<>());

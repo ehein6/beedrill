@@ -96,6 +96,9 @@ public:
         return vertex_out_neighbors_[vertex_id];
     }
 
+    long * vertices_begin() { return vertex_id_.begin(); }
+    long * vertices_end() { return vertex_id_.end(); }
+
     // TODO: more complex edge list data structures will require something
     // fancier than a pointer
     using edge_iterator = long*;
@@ -197,6 +200,8 @@ public:
     {
         edge_visitor<Function>{worker}(out_edges_begin(src), out_edges_end(src));
     }
+
+
 
 
     // Optimized functor for searching through edge lists

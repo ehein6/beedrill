@@ -13,19 +13,21 @@ hybrid_bfs::hybrid_bfs(graph & g)
 , queue_(g.num_vertices())
 , scout_count_(0L)
 , awake_count_(0L)
+, worklist_(g.num_vertices())
 {
     // Force ack controller singleton to initialize itself
     ack_control_init();
 }
 
 // Shallow copy constructor
-hybrid_bfs::hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag)
+hybrid_bfs::hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy shallow)
 : g_(other.g_)
-, parent_(other.parent_, tag)
-, new_parent_(other.new_parent_, tag)
-, queue_(other.queue_, tag)
+, parent_(other.parent_, shallow)
+, new_parent_(other.new_parent_, shallow)
+, queue_(other.queue_, shallow)
 , scout_count_(other.scout_count_)
 , awake_count_(other.awake_count_)
+, worklist_(other.worklist_, shallow)
 {}
 
 /**
@@ -71,24 +73,24 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     // Spawn a thread on each nodelet to process the local queue
     // For each neighbor without a parent, add self as parent and append to queue
     scout_count_ = 0;
+    worklist_.clear();
     queue_.forall_items([this](long src) {
-        // for each neighbor of that vertex...
-        g_->for_each_out_edge_grouped(
-            parallel_policy(64), src, [this, src](long dst) {
-                // Look up the parent of the vertex we are visiting
-                long * parent = &parent_[dst];
-                long curr_val = *parent;
-                // If we are the first to visit this vertex
-                if (curr_val < 0) {
-                    // Set self as parent of this vertex
-                    if (atomic_cas(parent, curr_val, src) == curr_val) {
-                        // Add it to the queue
-                        queue_.push_back(dst);
-                        remote_add(&scout_count_, -curr_val);
-                    }
-                }
+        worklist_.append(src, g_->out_edges_begin(src), g_->out_edges_end(src));
+    });
+
+    worklist_.process_all(dyn, [&](long src, long dst) {
+        // Look up the parent of the vertex we are visiting
+        long * parent = &parent_[dst];
+        long curr_val = *parent;
+        // If we are the first to visit this vertex
+        if (curr_val < 0) {
+            // Set self as parent of this vertex
+            if (atomic_cas(parent, curr_val, src) == curr_val) {
+                // Add it to the queue
+                queue_.push_back(dst);
+                remote_add(&scout_count_, -curr_val);
             }
-        );
+        }
     });
     // Combine per-nodelet values of scout_count
     return repl_reduce(scout_count_, std::plus<>());

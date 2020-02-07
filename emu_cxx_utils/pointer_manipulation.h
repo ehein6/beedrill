@@ -31,7 +31,7 @@ bool is_repl(const T * ptr){
 #ifdef __le64__
     return emu::pmanip::get_view(ptr) == 0;
 #else
-    return false;
+    return true;
 #endif
 }
 

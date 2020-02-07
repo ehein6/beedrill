@@ -6,7 +6,7 @@
 #include "common.h"
 #include "graph.h"
 #include "sliding_queue.h"
-
+#include "worklist.h"
 
 class hybrid_bfs {
 private:
@@ -21,6 +21,8 @@ private:
     // Declared here to avoid re-allocating before each step
     emu::repl<long> scout_count_;
     emu::repl<long> awake_count_;
+
+    worklist worklist_;
 
     void dump_queue_stats();
 

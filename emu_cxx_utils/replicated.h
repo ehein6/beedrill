@@ -53,13 +53,10 @@ void repl_for_each(
     parallel_policy,
     T & repl_ref, Function worker
 ){
-    if (emu::pmanip::is_repl(&repl_ref)) {
-        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-            T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
-            cilk_spawn_at(&remote_ref) worker(repl_ref);
-        }
-    } else {
-        worker(repl_ref);
+    assert(emu::pmanip::is_repl(&repl_ref));
+    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+        T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
+        cilk_spawn_at(&remote_ref) worker(repl_ref);
     }
 }
 

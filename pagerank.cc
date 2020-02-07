@@ -4,8 +4,8 @@
 #include <emu_cxx_utils/for_each.h>
 #include <emu_cxx_utils/fill.h>
 
-
 using namespace emu;
+using namespace emu::parallel;
 
 pagerank::pagerank(graph & g)
 : g_(&g)
