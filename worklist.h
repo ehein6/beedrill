@@ -1,30 +1,43 @@
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/execution_policy.h>
+#include <cilk/cilk.h>
 
 class worklist {
 private:
-    // One per nodelet
+    // The first vertex in the work list
+    // If this is a replicated instance, there will be a different head on
+    // each nodelet
     volatile long head_;
 
-    // One per vertex - struct-of-arrays
-    emu::striped_array<long*> edges_begin_;
-    emu::striped_array<long*> edges_end_;
+    // The following arrays have one element per vertex. Together they function
+    // as a linked-list node using struct-of-arrays.
+
+    // Next vertex ID to process (next pointer in linked list)
     emu::striped_array<long> next_vertex_;
+    // Pointer to start of edge list to process
+    emu::striped_array<long*> edges_begin_;
+    // Pointer past the end of edge list to process
+    emu::striped_array<long*> edges_end_;
+
 public:
 
-    worklist(long num_vertices)
+    explicit worklist(long num_vertices)
     : head_(-1)
+    , next_vertex_(num_vertices)
     , edges_begin_(num_vertices)
     , edges_end_(num_vertices)
-    , next_vertex_(num_vertices)
     {}
 
     worklist(const worklist& other, emu::shallow_copy shallow)
-    : edges_begin_(other.edges_begin_, shallow)
+    : next_vertex_(other.next_vertex_, shallow)
+    , edges_begin_(other.edges_begin_, shallow)
     , edges_end_(other.edges_end_, shallow)
-    , next_vertex_(other.next_vertex_, shallow)
     {}
 
+    /**
+     * Reset all replicated copies of the work queue.
+     * Only valid to call on replicated instance
+     */
     void clear_all ()
     {
         assert(emu::pmanip::is_repl(this));
@@ -33,17 +46,33 @@ public:
         }
     }
 
+    /**
+     * Reset the work queue so that new edges can be added
+     */
     void clear()
     {
         head_ = -1;
     }
 
+    /**
+     * Returns the nth replicated copy of the work list
+     * Only valid to call on a replicated instance
+     * @param n nodelet ID
+     * @return the nth replicated copy of the work list
+     */
     worklist&
     get_nth(long n)
     {
         return *emu::pmanip::get_nth(this, n);
     }
 
+    /**
+     * Atomically append edges to the work queue.
+     *
+     * @param src source vertex for all edges
+     * @param edges_begin Pointer to start of edge list to append
+     * @param edges_end Pointer past the end of the edge list to append
+     */
     void append(long src, long * edges_begin, long * edges_end)
     {
         assert(emu::pmanip::is_repl(this));
@@ -59,10 +88,11 @@ public:
         } while (prev_head != emu::atomic_cas(head_ptr, prev_head, src));
     }
 
+private:
+    // Worker function spawned in dynamic process_all
     template<class Visitor>
-    void process(emu::parallel_dynamic_policy, Visitor visitor)
+    void worker(Visitor visitor, long grain)
     {
-        long grain = 64; // TODO get from dynamic policy
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Get end pointer for the vertex list of src
@@ -82,7 +112,28 @@ public:
             // This vertex is done, move to the next one
         }
     }
+public:
+    /**
+     * Process the edges in the worklist in parallel
+     * Spawns local worker threads to pull items off of the work list.
+     * @param policy Dynamic policy: grain size indicates how many items each
+     * thread will pull off the worklist at a time.
+     * @param visitor Lambda function to call on each edge, with signature:
+     *  @c void (long src, long dst)
+     */
+    template<class Visitor>
+    void process(emu::parallel_dynamic_policy policy, Visitor visitor)
+    {
+        for (long t = 0; t < emu::threads_per_nodelet; ++t) {
+            cilk_spawn worker(visitor, policy.grain_);
+        }
+    }
 
+    /**
+     * Process the edges in the worklist
+     * @param visitor Lambda function to call on each edge, with signature:
+     *  @c void (long src, long dst)
+     */
     template<class Visitor>
     void process(emu::sequenced_policy, Visitor visitor)
     {
@@ -95,7 +146,15 @@ public:
             // This vertex is done, move to the next one
         }
     }
-
+    /**
+     * Process the edges in all replicated copies of the worklist
+     * Spawns local worker threads on each nodelet to pull items off of
+     * the work list.
+     * Only valid to call on a replicated instance
+     * @param policy Execution policy to use at each nodelet
+     * @param visitor Lambda function to call on each edge, with signature:
+     *  @c void (long src, long dst)
+     */
     template<class Policy, class Visitor>
     void process_all(Policy policy, Visitor visitor)
     {

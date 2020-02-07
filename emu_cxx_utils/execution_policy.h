@@ -50,8 +50,6 @@ namespace emu {
 
 // Execute loop iterations one at a time, in a single thread
 struct sequenced_policy {};
-// Create N worker threads, which dynamically pull loop iterations off a work queue
-struct parallel_dynamic_policy {};
 
 // Base class for policies that take a grain size
 struct grain_policy
@@ -68,6 +66,9 @@ struct parallel_policy : public grain_policy
 // May create fewer threads depending on grain size
 struct parallel_fixed_policy : public grain_policy
 { using grain_policy::grain_policy; };
+// Create N worker threads, which dynamically pull loop iterations off a work queue
+struct parallel_dynamic_policy : public grain_policy
+{ using grain_policy::grain_policy; };
 
 // Max number of elements to assign to each thread
 constexpr long default_grain = 128;
@@ -80,7 +81,7 @@ constexpr long threads_per_nodelet = 64;
 inline constexpr sequenced_policy           seq    {};
 inline constexpr parallel_policy            par    {default_grain};
 inline constexpr parallel_fixed_policy      fixed  {default_grain};
-inline constexpr parallel_dynamic_policy    dyn    {};
+inline constexpr parallel_dynamic_policy    dyn    {1};
 
 inline constexpr auto default_policy = fixed;
 

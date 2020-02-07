@@ -78,20 +78,22 @@ hybrid_bfs::top_down_step_with_migrating_threads()
         worklist_.append(src, g_->out_edges_begin(src), g_->out_edges_end(src));
     });
 
-    worklist_.process_all(dyn, [&](long src, long dst) {
-        // Look up the parent of the vertex we are visiting
-        long * parent = &parent_[dst];
-        long curr_val = *parent;
-        // If we are the first to visit this vertex
-        if (curr_val < 0) {
-            // Set self as parent of this vertex
-            if (atomic_cas(parent, curr_val, src) == curr_val) {
-                // Add it to the queue
-                queue_.push_back(dst);
-                remote_add(&scout_count_, -curr_val);
+    worklist_.process_all(parallel_dynamic_policy(64),
+        [this](long src, long dst) {
+            // Look up the parent of the vertex we are visiting
+            long * parent = &parent_[dst];
+            long curr_val = *parent;
+            // If we are the first to visit this vertex
+            if (curr_val < 0) {
+                // Set self as parent of this vertex
+                if (atomic_cas(parent, curr_val, src) == curr_val) {
+                    // Add it to the queue
+                    queue_.push_back(dst);
+                    remote_add(&scout_count_, -curr_val);
+                }
             }
         }
-    });
+    );
     // Combine per-nodelet values of scout_count
     return repl_reduce(scout_count_, std::plus<>());
 }
