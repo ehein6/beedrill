@@ -66,7 +66,9 @@ triangle_count::run()
         }
     });
 
-    worklist_.process_all(dyn, [this](long u, long v) { check_edge(u, v); });
+    worklist_.process_all(parallel_dynamic_policy(64),
+        [this](long u, long v) { check_edge(u, v); }
+    );
 
     stats s;
     s.num_triangles = cilk_spawn repl_reduce(num_triangles_, std::plus<>());
