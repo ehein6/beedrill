@@ -1,10 +1,12 @@
 #include <emu_cxx_utils/replicated.h>
 #include "graph.h"
+#include "worklist.h"
 
 class components
 {
 private:
     emu::repl<graph*> g_;
+    worklist worklist_;
 public:
     // Component that this vertex belongs to
     emu::striped_array<long> component_;

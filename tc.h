@@ -1,5 +1,6 @@
 #include <emu_cxx_utils/replicated.h>
 #include "graph.h"
+#include "worklist.h"
 
 class triangle_count
 {
@@ -10,7 +11,9 @@ private:
     // Reduction variable for number of two-paths in the graph
     emu::repl<long> num_twopaths_;
 
-    void count_triangles(long u);
+    worklist worklist_;
+
+    void check_edge(long u, long v);
 public:
     explicit triangle_count(graph& g);
     triangle_count(const triangle_count& other, emu::shallow_copy);

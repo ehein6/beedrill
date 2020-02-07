@@ -12,6 +12,7 @@ using namespace emu::parallel;
 
 components::components(graph & g)
 : g_(&g)
+, worklist_(g.num_vertices())
 , component_(g.num_vertices())
 , component_size_(g.num_vertices())
 , num_components_(g.num_vertices())
@@ -21,6 +22,7 @@ components::components(graph & g)
 
 components::components(const components& other, emu::shallow_copy shallow)
 : g_(other.g_)
+, worklist_(other.worklist_, shallow)
 , component_(other.component_, shallow)
 , component_size_(other.component_size_, shallow)
 , num_components_(other.num_components_)
@@ -34,49 +36,51 @@ components::clear()
 components::stats
 components::run()
 {
-    // Put each vertex in its own component
-    cilk_spawn parallel::for_each(component_.begin(), component_.end(),
-        [this](long & c) {
-            long index = &c - component_.begin();
-            c = index;
-        }
-    );
-    // Set size of each component to zero
-    parallel::fill(component_size_.begin(), component_size_.end(), 0L);
-    cilk_sync;
+    worklist_.clear_all();
+    for_each(fixed, g_->vertices_begin(), g_->vertices_end(), [this] (long v){
+        // Put each vertex in its own component
+        component_[v] = v;
+        // Set size of each component to zero
+        component_size_[v] = 0;
+        // Build the worklist for the first iteration
+        // Later, we do this during the tree-climbing step
+        worklist_.append(v, g_->out_edges_begin(v), g_->out_edges_end(v));
+    });
 
     long num_iters;
     for (num_iters = 1; ; ++num_iters) {
         long changed = 0;
         // For all edges that connect vertices in different components...
-        g_->for_each_vertex(dyn, [this, &changed](long src) {
-            g_->for_each_out_edge(seq, src, [this, src, &changed](long dst) {
-                long comp_src = component_[src];
-                long comp_dst = component_[dst];
-                if (comp_src == comp_dst) { return; }
+        worklist_.process_all(dyn, [this, &changed](long src, long dst) {
+            long comp_src = component_[src];
+            long comp_dst = component_[dst];
+            if (comp_src == comp_dst) { return; }
 
-                // Assign the lower component ID to both
-                // This algorithm is stable for undirected graphs
-                long high_comp = std::max(comp_src, comp_dst);
-                long low_comp = std::min(comp_src, comp_dst);
-                if (high_comp == component_[high_comp]) {
-                    changed = 1;
-                    component_[high_comp] = low_comp;
-                }
-            });
+            // Assign the lower component ID to both
+            // This algorithm is stable for undirected graphs
+            long high_comp = std::max(comp_src, comp_dst);
+            long low_comp = std::min(comp_src, comp_dst);
+            if (high_comp == component_[high_comp]) {
+                changed = 1;
+                component_[high_comp] = low_comp;
+            }
         });
 
         // No changes? We're done!
         if (!changed) break;
 
+        worklist_.clear_all();
         g_->for_each_vertex(fixed, [this](long v) {
+            // Merge connected components
             while (component_[v] != component_[component_[v]]) {
                 component_[v] = component_[component_[v]];
             }
+            // Add this vertex to the worklist for the next step
+            worklist_.append(v, g_->out_edges_begin(v), g_->out_edges_end(v));
         });
     }
     // Count up the size of each component
-    parallel::for_each(fixed, component_.begin(), component_.end(),
+    for_each(fixed, component_.begin(), component_.end(),
         [this](long c) { emu::remote_add(&component_size_[c], 1); }
     );
 
