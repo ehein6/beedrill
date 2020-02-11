@@ -5,9 +5,8 @@
 #include <algorithm>
 #include <cilk/cilk.h>
 #include "execution_policy.h"
-#include "stride_iterator.h"
+#include "nlet_stride_iterator.h"
 #include "intrinsics.h"
-#include "pointer_manipulation.h"
 
 namespace emu::parallel {
 namespace detail {
@@ -92,7 +91,7 @@ template<class T, class UnaryFunction>
 void
 for_each(
    parallel_dynamic_policy,
-   stride_iterator<T*> s_begin, stride_iterator<T*> s_end,
+   nlet_stride_iterator<T*> s_begin, nlet_stride_iterator<T*> s_end,
    UnaryFunction worker
 ) {
    // Shared pointer to the next item to process
@@ -102,9 +101,9 @@ for_each(
    for (long t = 0; t < threads_per_nodelet; ++t) {
        cilk_spawn [&](){
            // Atomically grab the next item off the list
-           for (T * item = atomic_addms(&next, s_begin.stride);
+           for (T * item = atomic_addms(&next, NODELETS());
                 item < end;
-                item = atomic_addms(&next, s_begin.stride))
+                item = atomic_addms(&next, NODELETS()))
            {
                // Call the worker function on the item
                worker(*item);
@@ -144,8 +143,7 @@ striped_for_each(
        // 1. Convert from iterator to raw pointer
        // 2. Advance to the first element on the nth nodelet
        // 3. Convert to striped iterator
-       auto stripe_begin = stride_iterator<Iterator>(
-           begin + nlet, NODELETS());
+       auto stripe_begin = nlet_stride_iterator<Iterator>(begin + nlet);
        // Now that the pointer has stride NODELETS(), we are addressing only
        // the elements on the nth nodelet
        auto stripe_end = stripe_begin + stripe_size;
@@ -190,8 +188,7 @@ striped_for_each(
        // 1. Convert from iterator to raw pointer
        // 2. Advance to the first element on the nth nodelet
        // 3. Convert to striped iterator
-       auto stripe_begin = stride_iterator<Iterator>(
-           &*(begin) + nlet, NODELETS());
+       auto stripe_begin = nlet_stride_iterator<Iterator>(&*(begin) + nlet);
        // Now that the pointer has stride NODELETS(), we are addressing only
        // the elements on the nth nodelet
        auto stripe_end = stripe_begin + stripe_size;

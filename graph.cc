@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <emu_c_utils/emu_c_utils.h>
+#include <emu_cxx_utils/intrinsics.h>
 #include <emu_cxx_utils/fill.h>
 
 #include "graph.h"
@@ -12,12 +13,10 @@
 
 using namespace emu;
 
-
 static inline long *
 grab_edges(long * volatile * ptr, long num_edges)
 {
-    // Atomic add only works on long integers, we need to use it on a long*
-    return (long*)ATOMIC_ADDMS((volatile long *)ptr, num_edges * sizeof(long));
+    return emu::atomic_addms(ptr, num_edges);
 }
 
 bool
