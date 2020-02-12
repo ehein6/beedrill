@@ -5,6 +5,7 @@
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/pointer_manipulation.h>
 #include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/repl_array.h>
 
 #include "common.h"
 #include "dist_edge_list.h"
@@ -25,10 +26,10 @@ struct graph {
     // OR replicated edge block pointer (heavy vertices only)
     emu::striped_array<long *> vertex_out_neighbors_;
 
+    // Pointer to chunk of memory on each nodelet for storing edges
+    emu::repl<emu::repl_array<long> *> edge_storage_;
     // Total number of edges stored on each nodelet
     long num_local_edges_;
-    // Pointer to stripe of memory where edges are stored
-    long *edge_storage_;
     // Pointer to un-reserved edge storage in local stripe
     long *next_edge_storage_;
 
@@ -52,6 +53,13 @@ struct graph {
     {}
 
     graph(const graph &other) = delete;
+
+    ~graph()
+    {
+        // Note: Could avoid new/delete here by using a unique_ptr, but we
+        // can't safely replicate those yet.
+        delete edge_storage_;
+    }
 
     /**
      * This is NOT a general purpose edge insert function, it relies on assumptions
