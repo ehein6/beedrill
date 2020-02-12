@@ -109,12 +109,11 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // Allocate a big stripe, such that there is enough room for the nodelet
     // with the most local edges
     // There will be wasted space on the other nodelets
-    long ** edge_storage = (long**)mw_malloc2d(NODELETS(), sizeof(long) * max_edges_per_nodelet);
-    assert(edge_storage);
-    // Initialize each copy of G.edge_storage to point to the local chunk
+    g->edge_storage_ = new emu::repl_array<long>(max_edges_per_nodelet);
+
+    // Initialize each copy of next_edge_storage to point to the local array
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        g->get_nth(nlet).edge_storage_ = edge_storage[nlet];
-        g->get_nth(nlet).next_edge_storage_ = edge_storage[nlet];
+        g->get_nth(nlet).next_edge_storage_ = g->edge_storage_->get_nth(nlet);
     }
 
     // Assign each edge block a position within the big array
