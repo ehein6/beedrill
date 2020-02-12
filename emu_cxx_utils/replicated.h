@@ -38,13 +38,10 @@ void repl_for_each(
     sequenced_policy,
     T &repl_ref, Function worker
 ){
-    if (emu::pmanip::is_repl(&repl_ref)) {
-        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-            T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
-            worker(remote_ref);
-        }
-    } else {
-        worker(repl_ref);
+    assert(emu::pmanip::is_repl(&repl_ref));
+    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+        T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
+        worker(remote_ref);
     }
 }
 
@@ -58,6 +55,13 @@ void repl_for_each(
         T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
         cilk_spawn_at(&remote_ref) worker(repl_ref);
     }
+}
+
+template<typename T, typename Function>
+void repl_for_each(
+    T & repl_ref, Function worker
+){
+    repl_for_each(seq, repl_ref, worker);
 }
 
 /**

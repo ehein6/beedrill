@@ -31,13 +31,16 @@ public:
         return emu::pmanip::get_nth(data_, n);
     }
 
-    // TODO do we actually want this? Index into the local copy of the array?
-    const T &operator[](long i) const {
-        return data_[i];
+    T * get_localto(void * other) {
+        return emu::pmanip::get_localto(data_, other);
     }
-    // Note: omitting non-const overload, not sure what semantics should be...
 
-    [[nodiscard]]
+    const T * get_localto(void * other) const {
+        return emu::pmanip::get_localto(data_, other);
+    }
+
+    const T* data() const { return data_; }
+    T* data() { return data_; }
     long size() const { return size_; }
 };
 

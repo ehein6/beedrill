@@ -1,12 +1,14 @@
 #pragma once
 
 #include <emu_cxx_utils/replicated.h>
+#include <emu_cxx_utils/repl_array.h>
 #include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/pointer_manipulation.h>
 
 class sliding_queue
 {
 private:
-    // Next available slot in the queue
+    // Index of next available slot in the queue
     long next_;
     // Start and end of the current window
     long start_;
@@ -14,22 +16,25 @@ private:
     // Index of the current window
     long window_;
     // Storage for items in the queue
-    emu::repl<long *> buffer_;
-    // Starting positions of each window
-    emu::repl<long *> heads_;
+    emu::repl_array<long> buffers_;
+    // Storage for starting positions of each window
+    emu::repl_array<long> heads_;
+
+    long * head_ptr_;
+    long * buffer_ptr_;
 
 public:
 
-    long * begin() { return &buffer_[start_]; }
-    long * end() { return &buffer_[end_]; }
+    long * begin() { return &buffer_ptr_[start_]; }
+    long * end() { return &buffer_ptr_[end_]; }
 
     explicit sliding_queue(long size)
+    : buffers_(size)
+    , heads_(size)
+    , head_ptr_(heads_.get_localto(this))
+    , buffer_ptr_(buffers_.get_localto(this))
     {
-        // TODO write class for repl array
-        buffer_ = static_cast<long*>(mw_mallocrepl(size * sizeof(long)));
-        heads_ = static_cast<long*>(mw_mallocrepl(size * sizeof(long)));
-        assert(buffer_ && heads_);
-        reset_all();
+        reset();
     }
 
     // Shallow copy constructor
@@ -38,15 +43,11 @@ public:
     , start_(other.start_)
     , end_(other.end_)
     , window_(other.window_)
-    , buffer_(other.buffer_)
+    , buffers_(other.buffers_)
     , heads_(other.heads_)
+    , head_ptr_(heads_.get_localto(this))
+    , buffer_ptr_(buffers_.get_localto(this))
     {}
-
-    ~sliding_queue()
-    {
-        mw_free(buffer_);
-        mw_free(heads_);
-    }
 
     void
     reset()
@@ -60,42 +61,38 @@ public:
     void
     reset_all()
     {
-        for (long n = 0; n < NODELETS(); ++n) {
-            get_nth(n).reset();
-        }
+        // Call reset on each copy of the queue
+        emu::repl_for_each(*this, std::mem_fn(&sliding_queue::reset));
     }
 
     // Returns a reference to the copy of T on the Nth nodelet
     sliding_queue&
     get_nth(long n)
     {
-        assert(n < NODELETS());
         return *emu::pmanip::get_nth(this, n);
     }
-
 
     void
     slide_window()
     {
-        start_ = window_ == 0 ? 0 : heads_[window_ - 1];
+        start_ = window_ == 0 ? 0 : head_ptr_[window_ - 1];
         end_ = next_;
-        heads_[window_] = end_;
+        head_ptr_[window_] = end_;
         window_ += 1;
     }
 
     void
     slide_all_windows()
     {
-        for (long n = 0; n < NODELETS(); ++n) {
-            get_nth(n).slide_window();
-        }
+        // Call slide_window on each replicated copy
+        emu::repl_for_each(*this, std::mem_fn(&sliding_queue::slide_window));
     }
 
     void
     push_back(long v)
     {
-        long pos = ATOMIC_ADDMS(&next_, 1);
-        buffer_[pos] = v;
+        long pos = emu::atomic_addms(&next_, 1);
+        buffer_ptr_[pos] = v;
     }
 
     bool
@@ -126,20 +123,24 @@ public:
     {
         long size = 0;
         for (long n = 0; n < NODELETS(); ++n) {
-            REMOTE_ADD(&size, get_nth(n).size());
+            size += get_nth(n).size();
         }
         return size;
     }
 
     void
+    dump()
+    {
+        for (long i = start_; i < end_; ++i) {
+            printf("%li ", buffer_ptr_[i]);
+        }
+    }
+
+    void
     dump_all()
     {
-        for (long n = 0; n < NODELETS(); ++n) {
-            sliding_queue & local_queue = get_nth(n);
-            for (long i = local_queue.start_; i < local_queue.end_; ++i) {
-                printf("%li ", local_queue.buffer_[i]);
-            }
-        }
+        // Call dump() on each copy
+        emu::repl_for_each(*this, std::mem_fn(&sliding_queue::dump));
     }
 
     template<class Function>

@@ -51,8 +51,7 @@ bool is_striped(const T * ptr){
  * Returns the nodelet number from a pointer
  * Result is undefined if view != 1
  */
-template <typename T>
-T * get_nodelet(T * ptr)
+inline long get_nodelet(void * ptr)
 {
 #ifdef __le64__
     return mw_ptrtonodelet(ptr);
@@ -100,11 +99,26 @@ T * get_nth(T * repladdr, long n)
 #endif
 }
 
-template <typename T>
-const T * get_nth(const T * repladdr, long n)
+/**
+ * Returns an absolute (view-1) version of repladdr that points to the
+ * same nodelet as otheraddr. If otheraddr is view-0, return repladdr
+ * unchanged.
+ *
+ * Compared with mw_get_localto: this one doesn't handle view-2 input,
+ * but won't return NULL if the second addr is view-0.
+ *
+ * @param repladdr Nodelet-relative (view-0)  pointer
+ * @param otheraddr A view-1 or view-0 pointer
+ * @return repladdr that has the same view/nlet number as otheraddr.
+ */
+template <class T>
+T * get_localto(T * repladdr, void * otheraddr)
 {
-    return get_nth(const_cast<T*>(repladdr), n);
+    if (is_repl(otheraddr)) {
+        return repladdr;
+    } else {
+        return get_nth(repladdr, get_nodelet(otheraddr));
+    }
 }
-
 
 } // end namespace emu::pmanip
