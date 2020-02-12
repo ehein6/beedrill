@@ -13,16 +13,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
 
-find_package(Boost REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
-
 # Link with emu_c_utils
 find_package(emu_c_utils REQUIRED)
 link_libraries(${EMU_C_UTILS_LIBRARIES})
 include_directories(${EMU_C_UTILS_INCLUDE_DIRS})
 
-# FIXME emu_cxx_utils depends on this Macro
-# Make it available everywhere
 # Macro for running tests on x86 or emusim
 function(add_emusim_test name command)
     if (CMAKE_SYSTEM_NAME STREQUAL Emu1)
@@ -47,23 +42,17 @@ function(add_emusim_test name command)
     endif()
 endfunction()
 
-# Build emu_cxx_utils
-add_subdirectory(emu_cxx_utils)
-
-
-
-# Enable libc extenstions like getline
-add_definitions(-D_XOPEN_SOURCE=700)
-
 # Stop compilation after the first error
 add_definitions(
     -Wfatal-errors
 )
 
+# Build graph generator
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
     add_subdirectory(generator)
 endif()
 
+# Build graph library
 include_directories(.)
 add_library(graph STATIC
     graph.h
@@ -76,9 +65,6 @@ link_libraries(graph)
 # Breadth-first search
 
 add_executable(hybrid_bfs
-    ack_control.h
-    sliding_queue.h
-    bitmap.h
     hybrid_bfs.h
     hybrid_bfs.cc
     hybrid_bfs_main.cc

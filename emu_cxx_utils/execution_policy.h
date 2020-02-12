@@ -2,7 +2,6 @@
 
 #include <emu_c_utils/emu_c_utils.h>
 #include "pointer_manipulation.h"
-#include "stride_iterator.h"
 
 #ifndef EMU_CXX_SPAWN_RADIX
 #define EMU_CXX_SPAWN_RADIX 16
