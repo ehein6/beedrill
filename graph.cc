@@ -96,9 +96,8 @@ graph::from_edge_list(dist_edge_list & dist_el)
     long max_edges_per_nodelet = emu::repl_reduce(g->num_local_edges_,
         [](long lhs, long rhs) { return std::max(lhs, rhs); });
     // Double-check that we haven't lost any edges
-    long check_total_edges = emu::repl_reduce(g->num_local_edges_,
-        std::plus<>());
-    assert(check_total_edges == 2 * g->num_edges_);
+    assert(2 * g->num_edges_ ==
+        emu::repl_reduce(g->num_local_edges_, std::plus<>()));
 
     LOG("Will use %li MiB on each nodelet\n", (max_edges_per_nodelet * sizeof(long)) >> 20);
 
