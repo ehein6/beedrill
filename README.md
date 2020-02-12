@@ -5,8 +5,10 @@ and optimized for the Emu architecture. It is intended to demonstrate both the
 best performance and the best practices for writing good Emu C++ code.
 
 All of my graph benchmarks are named with a yellow jacket theme, to honor my
-alma mater Georgia Tech. See also MeatBee (an early streaming graph benchmark
-for Emu) and PaperWasp (the predecessor and C equivalent of this project). 
+alma mater Georgia Tech. See also [MeatBee](https://github.com/ehein6/meatbee),
+an early streaming graph benchmark for Emu) and
+[PaperWasp](https://github.com/ehein6/PaperWasp), the predecessor and C
+equivalent of this project).
 
 ## Building the code
 
