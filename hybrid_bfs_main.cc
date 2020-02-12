@@ -99,7 +99,7 @@ struct bfs_args
         args.distributed_load = false;
         args.num_trials = 1;
         args.source_vertex = -1;
-        args.algorithm = "remote_writes_hybrid";
+        args.algorithm = "beamer_hybrid";
         args.alpha = 15;
         args.beta = 18;
         args.sort_edge_blocks = false;
