@@ -170,8 +170,8 @@ graph::print_distribution()
     // Compute percentage of edges on each nodelet
     double percent_edges[NODELETS()];
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        long num_local_edges = *(long*)mw_get_nth(&num_local_edges_, nlet);
-        percent_edges[nlet] = (double)num_local_edges / (num_edges_ * 2);
+        percent_edges[nlet] =
+            (double)num_local_edges_.get_nth(nlet) / (num_edges_ * 2);
     }
 
     // Compute the max (to scale the y-axis)
@@ -204,13 +204,23 @@ graph::print_distribution()
         }
         printf("\n");
     }
-    // Bottom two rows: nodelet number, stacked vertically
-    printf("       "); // Spacer
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        if (nlet > 10) { printf("%li", nlet / 10); }
-        else           { printf(" "); }
+    if (NODELETS() >= 100) {
+        // Bottom rows: nodelet number, stacked vertically
+        printf("       "); // Spacer
+        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+            if (nlet >= 100) { printf("%li", nlet / 100); }
+            else             { printf(" "); }
+        }
+        printf("\n");
     }
-    printf("\n");
+    if (NODELETS() >= 10) {
+        printf("       "); // Spacer
+        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+            if (nlet >= 10) { printf("%li", (nlet / 10) % 10); }
+            else           { printf(" "); }
+        }
+        printf("\n");
+    }
     printf("       "); // Spacer
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
         printf("%li", nlet % 10);
