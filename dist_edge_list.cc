@@ -234,7 +234,7 @@ dist_edge_list::load(const char* filename)
     }
 
     // Allocate the distributed edge list
-    auto dist_el = emu::make_repl_copy<dist_edge_list>(
+    auto dist_el = emu::make_repl_shallow<dist_edge_list>(
         header.num_vertices, header.num_edges
     );
 

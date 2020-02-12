@@ -141,7 +141,7 @@ int main(int argc, char ** argv)
 
     // Initialize the algorithm
     LOG("Initializing data structures...\n");
-    auto cc = emu::make_repl_copy<components>(*g);
+    auto cc = emu::make_repl_shallow<components>(*g);
 
     // Run multiple trials of the algorithm
     for (long trial = 0; trial < args.num_trials; ++trial) {

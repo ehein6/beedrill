@@ -43,11 +43,11 @@ graph::check(dist_edge_list &dist_el) {
     return (bool)ok;
 }
 
-std::unique_ptr<emu::repl_copy<graph>>
+std::unique_ptr<emu::repl_shallow<graph>>
 graph::from_edge_list(dist_edge_list & dist_el)
 {
     LOG("Initializing distributed vertex list...\n");
-    auto g = emu::make_repl_copy<graph>(
+    auto g = emu::make_repl_shallow<graph>(
         dist_el.num_vertices_, dist_el.num_edges_);
     // Assign vertex ID's as position in the list
     parallel::for_each(fixed,

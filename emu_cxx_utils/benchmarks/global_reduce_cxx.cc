@@ -72,7 +72,7 @@ int main(int argc, char * argv[])
     long mbytes_per_nodelet = mbytes / NODELETS();
     LOG("Initializing array with %li elements (%li MiB total, %li MiB per nodelet)\n",
         3 * n, 3 * mbytes, 3 * mbytes_per_nodelet);
-    auto bench = emu::make_repl_copy<reduce_bench>(n);
+    auto bench = emu::make_repl_shallow<reduce_bench>(n);
 
 #ifndef NO_VALIDATE
     bench->init();

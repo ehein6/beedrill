@@ -71,7 +71,7 @@ striped_reduce(parallel_policy policy,
 {
     // Allocate a partial sum on each nodelet
     // Using replicated storage, but we'll convert to absolute ptr later
-    auto partials = emu::make_repl_ctor<T>(init);
+    auto partials = emu::make_repl_deep<T>(init);
     // Total number of elements
     auto size = std::distance(first, last);
     // Number of elements in each range

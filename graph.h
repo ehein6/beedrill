@@ -79,7 +79,7 @@ struct graph {
 
 public:
 
-    static std::unique_ptr<emu::repl_copy<graph>>
+    static std::unique_ptr<emu::repl_shallow<graph>>
     from_edge_list(dist_edge_list &dist_el);
 
     bool check(dist_edge_list &dist_el);
