@@ -13,12 +13,6 @@
 
 using namespace emu;
 
-static inline long *
-grab_edges(long * volatile * ptr, long num_edges)
-{
-    return emu::atomic_addms(ptr, num_edges);
-}
-
 bool
 out_edge_exists(graph& g, long src, long dst)
 {
@@ -118,7 +112,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
         // Empty vertices don't need storage
         if (g->vertex_out_degree_[v] > 0) {
             // Local vertices have one edge block on the local nodelet
-            g->vertex_out_neighbors_[v] = grab_edges(
+            g->vertex_out_neighbors_[v] = emu::atomic_addms(
                 &g->next_edge_storage_,
                 g->vertex_out_degree_[v]
             );
