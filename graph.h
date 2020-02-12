@@ -73,7 +73,7 @@ struct graph {
         long *num_edges_ptr = &vertex_out_degree_[src];
         // Atomically claim a position in the edge list and insert the edge
         // NOTE: Relies on all edge counters being set to zero in the previous step
-        edges[ATOMIC_ADDMS(num_edges_ptr, 1)] = dst;
+        edges[emu::atomic_addms(num_edges_ptr, 1)] = dst;
     }
 
 
