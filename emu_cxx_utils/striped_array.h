@@ -14,7 +14,6 @@ extern "C" {
 #include <cstdio>
 #include <cilk/cilk.h>
 
-#include "stride_iterator.h"
 #include "replicated.h"
 
 namespace emu {
@@ -56,8 +55,6 @@ public:
 
     typedef T* iterator;
     typedef const T* const_iterator;
-    typedef T* striped_iterator;
-    typedef const T* const_striped_iterator;
 
     iterator begin ()               { return ptr; }
     iterator end ()                 { return ptr + n; }
