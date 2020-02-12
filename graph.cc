@@ -85,7 +85,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // instead of a bunch of tiny ones.
     LOG("Counting local edges...\n");
     hooks_region_begin("count_local_edges");
-    mw_replicated_init(&g->num_local_edges_, 0);
+    g->num_local_edges_ = 0;
     g->for_each_vertex([&](long v) {
         emu::atomic_addms(&g->num_local_edges_, g->vertex_out_degree_[v]);
     });
@@ -93,16 +93,12 @@ graph::from_edge_list(dist_edge_list & dist_el)
 
     LOG("Allocating edge storage...\n");
     // Run around and compute the largest number of edges on any nodelet
-    long max_edges_per_nodelet = 0;
-    long check_total_edges = 0;
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        long num_edges_on_nodelet = g->get_nth(nlet).num_local_edges_;
-        REMOTE_MAX(&max_edges_per_nodelet, num_edges_on_nodelet);
-        REMOTE_ADD(&check_total_edges, num_edges_on_nodelet);
-    }
+    long max_edges_per_nodelet = emu::repl_reduce(g->num_local_edges_,
+        [](long lhs, long rhs) { return std::max(lhs, rhs); });
     // Double-check that we haven't lost any edges
+    long check_total_edges = emu::repl_reduce(g->num_local_edges_,
+        std::plus<>());
     assert(check_total_edges == 2 * g->num_edges_);
-
 
     LOG("Will use %li MiB on each nodelet\n", (max_edges_per_nodelet * sizeof(long)) >> 20);
 

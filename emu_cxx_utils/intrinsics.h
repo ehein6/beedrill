@@ -63,7 +63,6 @@ remote_add(volatile long * ptr, long value)
 {
     return REMOTE_ADD(ptr, value);
 }
-
 // Remote add on pointer
 template<class T>
 inline T*
@@ -71,6 +70,28 @@ remote_add(T * volatile * ptr, ptrdiff_t value)
 {
     value *= sizeof(T);
     REMOTE_ADD((volatile long*)ptr, (long)value);
+}
+// Remote bitwise ops don't make sense on pointer
+// TODO overloads for unsigned long
+inline void
+remote_and(volatile long * ptr, long value) {
+    return REMOTE_AND(ptr, value);
+}
+inline void
+remote_or(volatile long * ptr, long value) {
+    return REMOTE_OR(ptr, value);
+}
+inline void
+remote_xor(volatile long * ptr, long value) {
+    return REMOTE_XOR(ptr, value);
+}
+inline void
+remote_max(volatile long * ptr, long value) {
+    return REMOTE_MAX(ptr, value);
+}
+inline void
+remote_min(volatile long * ptr, long value) {
+    return REMOTE_MIN(ptr, value);
 }
 
 //TODO implement all remotes/atomics

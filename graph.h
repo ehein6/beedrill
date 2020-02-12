@@ -29,7 +29,7 @@ struct graph {
     // Pointer to chunk of memory on each nodelet for storing edges
     emu::repl<emu::repl_array<long> *> edge_storage_;
     // Total number of edges stored on each nodelet
-    long num_local_edges_;
+    emu::repl<long> num_local_edges_;
     // Pointer to un-reserved edge storage in local stripe
     long *next_edge_storage_;
 
