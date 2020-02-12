@@ -86,7 +86,10 @@ public:
     }
 };
 
-
+/**
+ * Tag type used to define an overload of the copy constructor that performs
+ * shallow copies.
+ */
 struct shallow_copy {};
 
 /**
