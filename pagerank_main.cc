@@ -160,7 +160,7 @@ int main(int argc, char ** argv)
     // Initialize the algorithm
     LOG("Initializing PageRank data structures...\n");
 
-    auto pr = emu::make_repl_copy<pagerank>(*g);
+    auto pr = emu::make_repl_shallow<pagerank>(*g);
 
     // Run trials
     double time_ms_all_trials = 0;

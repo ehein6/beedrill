@@ -92,7 +92,7 @@ Advantages compared to `mw_malloc1dlong`:
 - Handles construction/destruction of arbitrary types. 
 
 This class is repl-aware, it can be safely nested in replicated classes 
-or within `emu::repl_copy`. 
+or within `emu::repl_shallow`. 
 
 ### repl_array.h
 Provides the `emu::repl_array<T>` container class, which wraps `mw_mallocrepl`. 
@@ -101,7 +101,7 @@ Creates an array of the same size on each nodelet. Functions `get_nth` and
 nodelet.  
 
 This class is repl-aware, it can be safely nested in replicated classes 
-or within `emu::repl_copy`.
+or within `emu::repl_shallow`.
 
 ### replicated.h
 
@@ -155,15 +155,15 @@ instead of `emu::repl<long>`.
 - Replicated references (i.e. `emu::repl<MyClass&>`) are not supported yet. 
 Use a pointer instead.
  
-`emu::repl_ctor<T>`: Replicated object with deep copies. 
+`emu::repl_deep<T>`: Replicated object with deep copies. 
 
 - Constructor will be called separately on each nodelet with the same arguments.
 - Each copy will be destructed individually. 
 - Within method calls, `this` will be a nodelet-relative (view-0) pointer. If 
 you wish to call a method on a particular copy of the object, use `get_nth`.
-- Must not be created on the stack. Use `new` or `emu::make_repl_ctor<T>()`.
+- Must not be created on the stack. Use `new` or `emu::make_repl_deep<T>()`.
  
-`emu::repl_copy<T>`: Replicated object with shallow copies
+`emu::repl_shallow<T>`: Replicated object with shallow copies
 
 - Calls the constructor on the local replicated copy, then makes a shallow copy
 of the local object on each remote nodelet. The semantics of "shallow copy" 
@@ -181,7 +181,7 @@ not destructed. Note that this is not guaranteed to be the same storage that
 the constructor was called upon.
 - Within method calls, `this` will be a nodelet-relative (view-0) pointer. If 
 you wish to call a method on a particular copy of the object, use `get_nth`.
-- Must not be created on the stack. Use `new` or `emu::make_repl_copy<T>()`.
+- Must not be created on the stack. Use `new` or `emu::make_repl_shallow<T>()`.
 
 #### Function templates for replicated objects
 

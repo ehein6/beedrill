@@ -15,7 +15,7 @@
  * There are several template wrappers to choose from depending on what kind of behavior you want
  * - repl_new     : Classes that inherit from repl_new will be allocated in replicated memory.
  *
- * - repl_copy<T> : Call constructor locally, then shallow copy onto each remote nodelet.
+ * - repl_shallow<T> : Call constructor locally, then shallow copy onto each remote nodelet.
  *                  The destructor will be called on only one copy, the other shallow copies ARE NOT DESTRUCTED.
  *                  The semantics of "shallow copy" depend on the type of T
  *                      - If T is trivially copyable (no nested objects or custom copy constructor),
@@ -25,9 +25,9 @@
  *                            T(const T& other, emu::shallow_copy)
  *                        The second argument can be ignored.
  *
- * - repl<T>      : Implements repl_copy-like functionality for primitive types (int, float, long*, etc.)
+ * - repl<T>      : Implements repl_shallow-like functionality for primitive types (int, float, long*, etc.)
  *
- * - repl_ctor<T> : Call constructor on every nodelet with same arguments.
+ * - repl_deep<T> : Call constructor on every nodelet with same arguments.
  *                  Every copy will be destructed individually.
  */
 
@@ -93,7 +93,7 @@ public:
 struct shallow_copy {};
 
 /**
- * repl_copy<T> : Wrapper template to add replicated semantics to a class using shallow copies.
+ * repl_shallow<T> : Wrapper template to add replicated semantics to a class using shallow copies.
  *
  * Assignment:
  *     Will call the assignment operator on each remote copy.
@@ -116,11 +116,11 @@ struct shallow_copy {};
  * All other operations (function calls, attribute accesses) will access the local copy of T.
  */
 template <typename T>
-class repl_copy : public T, public repl_new
+class repl_shallow : public T, public repl_new
 {
 public:
     /**
-     * Default shallow copy operation to be used by repl_copy<T>
+     * Default shallow copy operation to be used by repl_shallow<T>
      * Only defined for trivially copyable (i.e. copy constructor == memcpy) types.
      * In this case there is no difference between a deep copy and a shallow copy.
      * @tparam T Type with trivial copy semantics
@@ -138,7 +138,7 @@ public:
 
     /**
      * If T has a "shallow copy constructor" (copy constructor with additional dummy argument)
-     * repl_copy<T> will use this version instead. Otherwise SFINAE will make this one go away.
+     * repl_shallow<T> will use this version instead. Otherwise SFINAE will make this one go away.
      * @tparam T Type with a "shallow copy constructor" (copy constructor with additional dummy argument)
      * @param dst Pointer to sizeof(T) bytes of uninitialized memory
      * @param src Pointer to constructed T
@@ -173,7 +173,7 @@ public:
 
     // Wrapper constructor to copy T to each nodelet after running the requested constructor
     template<typename... Args>
-    explicit repl_copy (Args&&... args)
+    explicit repl_shallow (Args&&... args)
     // Call T's constructor with forwarded args
     : T(std::forward<Args>(args)...)
     {
@@ -189,7 +189,7 @@ public:
     }
 
     // Copy constructor
-    repl_copy(const repl_copy& other)
+    repl_shallow(const repl_shallow& other)
     : T(other, shallow_copy())
     {
         for (long i = 0; i < NODELETS(); ++i) {
@@ -197,9 +197,9 @@ public:
         }
     }
 
-    repl_copy(const repl_copy& other, shallow_copy) = delete;
+    repl_shallow(const repl_shallow& other, shallow_copy) = delete;
 
-    friend void swap(repl_copy& lhs, repl_copy& rhs)
+    friend void swap(repl_shallow& lhs, repl_shallow& rhs)
     {
         using std::swap;
         for (long i = 0; i < NODELETS(); ++i) {
@@ -208,7 +208,7 @@ public:
     }
 
     // Initializes all copies to the same value
-    repl_copy&
+    repl_shallow&
     operator=(const T& rhs)
     {
         for (long i = 0; i < NODELETS(); ++i) {
@@ -222,7 +222,7 @@ public:
 
 /**
  * Replicated wrapper for primitive types
- * Same behavior as repl_copy<T>, but simpler since there are no custom constructors or deep copies.
+ * Same behavior as repl_shallow<T>, but simpler since there are no custom constructors or deep copies.
  */
 template<typename T>
 class repl : public repl_new
@@ -284,7 +284,7 @@ public:
 };
 
 /**
- * repl_ctor<T> : Wrapper template to add replicated semantics to a class using distributed construction.
+ * repl_deep<T> : Wrapper template to add replicated semantics to a class using distributed construction.
  *
  * Assignment:
  *     Will call the assignment operator on the local copy.
@@ -298,7 +298,7 @@ public:
  * All other operations (function calls, attribute accesses) will access the local copy of T.
  */
 template<typename T>
-class repl_ctor : public T, public repl_new
+class repl_deep : public T, public repl_new
 {
 public:
     /**
@@ -312,9 +312,9 @@ public:
         return *emu::pmanip::get_nth(this, n);
     }
 
-    // Constructor template - allows repl_ctor<T> to be constructed just like a T
+    // Constructor template - allows repl_deep<T> to be constructed just like a T
     template<typename... Args>
-    explicit repl_ctor(Args&&... args)
+    explicit repl_deep(Args&&... args)
     // Call T's constructor with forwarded args
     : T(std::forward<Args>(args)...)
     {
@@ -332,7 +332,7 @@ public:
         }
     }
 
-    ~repl_ctor()
+    ~repl_deep()
     {
         // Pointer to the object on this nodelet, which has already been destructed
         T * local = &get_nth(NODE_ID());
@@ -347,7 +347,7 @@ public:
 };
 
 // TODO implement repl_iterator, then this can be merged with regular reduce()
-// TODO missing impl for repl_copy and repl_ctor
+// TODO missing impl for repl_shallow and repl_deep
 template<typename T, typename F>
 T repl_reduce(repl<T>& ref, F reduce)
 {
@@ -392,9 +392,9 @@ std::unique_ptr<emu::repl<T>> make_repl( Args&& ...args )
  * @return a smart pointer to a replicated (shallow copies) instance of T
  */
 template<typename T, typename ...Args>
-std::unique_ptr<emu::repl_copy<T>> make_repl_copy( Args&& ...args )
+std::unique_ptr<emu::repl_shallow<T>> make_repl_shallow( Args&& ...args )
 {
-    return std::make_unique<emu::repl_copy<T>>( std::forward<Args>(args)... );
+    return std::make_unique<emu::repl_shallow<T>>( std::forward<Args>(args)... );
 }
 
 /**
@@ -403,9 +403,9 @@ std::unique_ptr<emu::repl_copy<T>> make_repl_copy( Args&& ...args )
  * @return a smart pointer to a replicated (deep copies) instance of T
  */
 template<typename T, typename ...Args>
-std::unique_ptr<emu::repl_ctor<T>> make_repl_ctor( Args&& ...args )
+std::unique_ptr<emu::repl_deep<T>> make_repl_deep( Args&& ...args )
 {
-    return std::make_unique<emu::repl_ctor<T>>( std::forward<Args>(args)... );
+    return std::make_unique<emu::repl_deep<T>>( std::forward<Args>(args)... );
 }
 
 } // end namespace emu

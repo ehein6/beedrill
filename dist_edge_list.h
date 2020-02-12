@@ -38,7 +38,7 @@ struct dist_edge_list
     dist_edge_list(const dist_edge_list& other) = delete;
 
     // Smart pointer to a replicated dist_edge_list
-    using handle = std::unique_ptr<emu::repl_copy<dist_edge_list>>;
+    using handle = std::unique_ptr<emu::repl_shallow<dist_edge_list>>;
 
     // Creates distributed edge list from file
     // Supports files that are larger than the memory of a single

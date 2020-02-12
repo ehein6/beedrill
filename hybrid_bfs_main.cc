@@ -255,7 +255,7 @@ int main(int argc, char ** argv)
         LOG("Algorithm '%s' not implemented!\n", args.algorithm);
         exit(1);
     }
-    auto bfs = emu::make_repl_copy<hybrid_bfs>(*g);
+    auto bfs = emu::make_repl_shallow<hybrid_bfs>(*g);
 
     // Run trials
     long num_edges_traversed_all_trials = 0;

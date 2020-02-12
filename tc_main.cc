@@ -138,7 +138,7 @@ int main(int argc, char ** argv)
 
     // Initialize the algorithm
     LOG("Initializing TC data structures...\n");
-    auto tc = emu::make_repl_copy<triangle_count>(*g);
+    auto tc = emu::make_repl_shallow<triangle_count>(*g);
 
     // Run multiple trials of the algorithm
     for (long trial = 0; trial < args.num_trials; ++trial) {
