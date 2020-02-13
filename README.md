@@ -1,6 +1,6 @@
 ## Overview 
 
-Beedrill is graph library written in C++/Cilk
+Beedrill is a graph library written in C++/Cilk
 and optimized for the Emu architecture. It is intended to demonstrate both the
 best performance and the best practices for writing good Emu C++ code.
 
