@@ -41,10 +41,10 @@ Serial policies:
 Parallel policies: Each of these policies has a grain size argument. 
 - `emu::parallel_policy` (`par`): Execute using multiple threads. One thread 
 will be spawned for each granule.
-- `emu::parallel_fixed_policy` (`fixed`): Execute using a team of worker 
+- `emu::static_policy` (`fixed`): Execute using a team of worker 
 threads, giving each thread the same number of iterations. The grain size is 
 interpreted as a minimum. 
-- `emu::parallel_dynamic_policy` (`dyn`): Execute using a team of worker 
+- `emu::dynamic_policy` (`dyn`): Execute using a team of worker 
 threads. Each thread will grab iterations from a work queue using atomic add. 
 When operating on distributed arrays, there will be one work queue per nodelet.
 The iterator must be a raw pointer. 

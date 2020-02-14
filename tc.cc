@@ -66,7 +66,7 @@ triangle_count::run()
         }
     });
 
-    worklist_.process_all(parallel_dynamic_policy(64),
+    worklist_.process_all(seq,
         [this](long u, long v) { check_edge(u, v); }
     );
 

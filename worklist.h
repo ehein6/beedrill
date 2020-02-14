@@ -123,7 +123,7 @@ public:
      *  @c void (long src, long dst)
      */
     template<class Visitor>
-    void process(emu::parallel_dynamic_policy policy, Visitor visitor)
+    void process(emu::dynamic_policy policy, Visitor visitor)
     {
         for (long t = 0; t < emu::threads_per_nodelet; ++t) {
             cilk_spawn worker(visitor, policy.grain_);

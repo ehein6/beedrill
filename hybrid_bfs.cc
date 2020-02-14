@@ -3,6 +3,7 @@
 
 #include <emu_cxx_utils/execution_policy.h>
 #include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/find.h>
 
 using namespace emu;
 
@@ -78,7 +79,7 @@ hybrid_bfs::top_down_step_with_migrating_threads()
         worklist_.append(src, g_->out_edges_begin(src), g_->out_edges_end(src));
     });
 
-    worklist_.process_all(parallel_dynamic_policy(64),
+    worklist_.process_all(dynamic_policy(64),
         [this](long src, long dst) {
             // Look up the parent of the vertex we are visiting
             long * parent = &parent_[dst];
@@ -116,7 +117,7 @@ hybrid_bfs::bottom_up_step()
     g_->for_each_vertex([this](long child) {
         if (parent_[child] >= 0) { return; }
         // Look for neighbors who are in the frontier
-        g_->find_out_edge_grouped(seq, child, [this, child](long parent) {
+        g_->find_out_edge_if(unroll, child, [this, child](long parent) {
             // If the neighbor is in the frontier...
             if (parent_[parent] >= 0) {
                 // Claim as a parent
