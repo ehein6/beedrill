@@ -43,9 +43,9 @@ function(add_emusim_test name command)
 endfunction()
 
 # Stop compilation after the first error
-add_definitions(
-    -Wfatal-errors
-)
+#add_definitions(
+#    -Wfatal-errors
+#)
 
 # Build graph generator
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")

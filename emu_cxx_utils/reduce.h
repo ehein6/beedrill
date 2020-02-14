@@ -102,7 +102,7 @@ striped_reduce(parallel_policy policy,
 
 template<class ForwardIt, class T, class BinaryOp>
 T
-reduce(parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
+reduce(static_policy policy, ForwardIt first, ForwardIt last,
        T init, BinaryOp binary_op)
 {
     // Recalculate grain size to limit thread count
@@ -113,7 +113,7 @@ reduce(parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
 
 template<class ForwardIt, class T, class BinaryOp>
 T
-striped_reduce(parallel_fixed_policy policy, ForwardIt first, ForwardIt last,
+striped_reduce(static_policy policy, ForwardIt first, ForwardIt last,
        T init, BinaryOp binary_op)
 {
     // Recalculate grain size to limit thread count

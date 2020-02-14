@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <iterator>
+#include "intrinsics.h"
 
 namespace emu {
 
@@ -101,6 +102,25 @@ public:
     {
         return (lhs.it - rhs.it) / NODELETS();
     }
+
+    // Provide overloads for atomic increment
+    // These only work if we are wrapping a raw pointer
+    friend nlet_stride_iterator
+    atomic_addms(nlet_stride_iterator* iter, ptrdiff_t value)
+    {
+        value *= NODELETS();
+        return nlet_stride_iterator(emu::atomic_addms(&iter->it, value));
+    }
+
+//    template<class T>
+//    friend nlet_stride_iterator<T*>
+//    atomic_addm(nlet_stride_iterator<T*>* iter, ptrdiff_t value)
+//    {
+//        value *= NODELETS();
+//        return atomic_addm(&iter->it, value);
+//    }
 };
+
+
 
 } // end namespace emu
