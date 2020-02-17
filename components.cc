@@ -51,7 +51,7 @@ components::run()
     for (num_iters = 1; ; ++num_iters) {
         long changed = 0;
         // For all edges that connect vertices in different components...
-        worklist_.process_all(dynamic_policy(64),
+        worklist_.process_all(dynamic_policy<64>(),
             [this, &changed](long src, long dst) {
                 long comp_src = component_[src];
                 long comp_dst = component_[dst];

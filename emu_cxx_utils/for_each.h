@@ -76,7 +76,7 @@ for_each(
     UnaryFunction worker
 ) {
     // Serial spawn over each granule
-    auto grain = policy.grain_;
+    auto grain = Policy::grain;
     for (; begin < end; begin += grain) {
         // Spawn a thread to handle each granule
         // Last iteration may be smaller if things don't divide evenly
@@ -96,45 +96,85 @@ for_each(
    Policy policy,
    Iterator begin, Iterator end, UnaryFunction worker
 ) {
-   // Recalculate grain size to limit thread count
-   // and forward to unlimited parallel version
-   detail::for_each(
-       compute_fixed_grain(policy, begin, end),
-       begin, end, worker
-   );
+    // Recalculate grain size to limit thread count
+    // and forward to unlimited parallel version
+    long grain = compute_fixed_grain(policy, begin, end);
+    for (; begin < end; begin += grain) {
+        // Spawn a thread to handle each granule
+        // Last iteration may be smaller if things don't divide evenly
+        auto last = begin + grain <= end ? begin + grain : end;
+        cilk_spawn_at(ptr_from_iter(begin)) detail::for_each(
+            remove_parallel_t<Policy>(),
+            begin, last, worker
+        );
+    }
 }
 
 // Dynamic version
-template<class Policy, class T, class Function>
+template<class Policy, class T, class UnaryOp, bool nlet_stride>
 class dyn_worker
 {
 private:
+    // Execution policy of my parent thread
+    Policy policy_;
     // Pointer to the begin iterator, which can be atomically advanced
     T** next_ptr_;
     // End of the range
     T* end_;
-    // Number of elements to claim at a time
-    long grain_;
     // Worker function to call on each item
-    Function worker_;
+    UnaryOp unary_op_;
+
+    void worker_thread()
+    {
+        long grain = Policy::grain();
+        if (nlet_stride) { grain *= NODELETS(); }
+        // Atomically grab items off the list
+        for (T* next = atomic_addms(next_ptr_, grain);
+             next < end_;
+             next = atomic_addms(next_ptr_, grain))
+        {
+            // Process each element
+            T* last = next + grain; if (last > end_) { last = end_; }
+            // May need to convert back to nlet_stride iterator
+            using iter = std::conditional_t<nlet_stride,
+                nlet_stride_iterator<T*>, T*>;
+            detail::for_each(
+                remove_parallel_t<Policy>(), iter(next), iter(last), unary_op_);
+        }
+    }
+
+    /**
+     * Optimized implementation for when grain size is 1
+     * Compiler can't seem to be able to deduce that the for_each above
+     * will only execute once in this case.
+     */
+    void worker_thread_1()
+    {
+        long increment = nlet_stride ? NODELETS() : 1;
+        // Atomically grab items off the list
+        for (T* next = atomic_addms(next_ptr_, increment);
+             next < end_;
+             next = atomic_addms(next_ptr_, increment))
+        {
+            // Process each element
+            unary_op_(*next);
+        }
+    }
+
 public:
-    explicit dyn_worker(T** next_ptr, T* end, long grain, Function worker)
-    : next_ptr_(next_ptr)
+    explicit dyn_worker(Policy policy, T** next_ptr, T* end, UnaryOp unary_op)
+    : policy_(policy)
+    , next_ptr_(next_ptr)
     , end_(end)
-    , grain_(grain)
-    , worker_(worker)
+    , unary_op_(unary_op)
     {}
 
     void operator()()
     {
-        // Atomically grab items off the list
-        for (T* item = atomic_addms(next_ptr_, grain_);
-             item < end_;
-             item = atomic_addms(next_ptr_, grain_))
-        {
-            auto end = item + grain_ > end_ ? end_ : item + grain_;
-            // Call the worker function on the items
-            detail::for_each(Policy(), item, end, worker_);
+        if constexpr (Policy::grain == 1L) {
+            worker_thread_1();
+        } else {
+            worker_thread();
         }
     }
 };
@@ -150,10 +190,9 @@ for_each(
 {
     // Shared pointer to the next item to process
     T* next = begin;
-    // Pick the right execution policy for each worker to use
-    using serial = remove_parallel_t<Policy>;
-    dyn_worker<serial, T, UnaryFunction> worker_thread(
-        &next, end, policy.grain_, worker);
+    // Set up the worker functor
+    dyn_worker<Policy, T, UnaryFunction, /*nlet_stride*/ false> worker_thread(
+        policy, &next, end, worker);
     // Create a worker thread for each execution slot
     for (long t = 0; t < threads_per_nodelet; ++t) {
         // Create and spawn the dyn_worker functor, which captures a reference
@@ -176,10 +215,9 @@ for_each(
     // Shared pointer to the next item to process
     T* next = &*s_begin;
     T* end = &*s_end;
-    // Pick the right execution policy for each worker to use
-    using serial = remove_parallel_t<Policy>;
-    dyn_worker<serial, T, UnaryFunction> worker_thread(
-        &next, end, policy.grain_ * NODELETS(), worker);
+    // Set up the worker functor
+    dyn_worker<Policy, T, UnaryFunction, /*nlet_stride*/ true> worker_thread(
+        policy, &next, end, worker);
     // Create a worker thread for each execution slot
     for (long t = 0; t < threads_per_nodelet; ++t) {
         // Create and spawn the dyn_worker functor, which captures a reference
