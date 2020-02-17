@@ -157,9 +157,9 @@ public:
     }
 
     template<class Policy, class Function>
-    long find_out_edge_if(Policy policy, long src, Function worker)
+    long* find_out_edge_if(Policy policy, long src, Function worker)
     {
-        return *emu::parallel::find_if(
+        return emu::parallel::find_if(
             policy, out_edges_begin(src), out_edges_end(src), worker
         );
     }
