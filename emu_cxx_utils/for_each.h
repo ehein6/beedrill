@@ -105,20 +105,20 @@ for_each(
 }
 
 // Dynamic version
-template<class Policy, class Iterator, class Function>
+template<class Policy, class T, class Function>
 class dyn_worker
 {
 private:
     // Pointer to the begin iterator, which can be atomically advanced
-    Iterator* next_ptr_;
+    T** next_ptr_;
     // End of the range
-    Iterator end_;
+    T* end_;
     // Number of elements to claim at a time
     long grain_;
     // Worker function to call on each item
     Function worker_;
 public:
-    explicit dyn_worker(Iterator* next_ptr, Iterator end, long grain, Function worker)
+    explicit dyn_worker(T** next_ptr, T* end, long grain, Function worker)
     : next_ptr_(next_ptr)
     , end_(end)
     , grain_(grain)
@@ -128,37 +128,63 @@ public:
     void operator()()
     {
         // Atomically grab items off the list
-        for (Iterator item = atomic_addms(next_ptr_, grain_);
+        for (T* item = atomic_addms(next_ptr_, grain_);
              item < end_;
              item = atomic_addms(next_ptr_, grain_))
         {
-            auto end = item + grain_ > end_ ? item + grain_ : end_;
+            auto end = item + grain_ > end_ ? end_ : item + grain_;
             // Call the worker function on the items
             detail::for_each(Policy(), item, end, worker_);
         }
     }
 };
 
-// Dynamic version
 // Assumes that the iterators are raw pointers that can be atomically advanced
-template<class Policy, class Iterator, class UnaryFunction,
+template<class Policy, class T, class UnaryFunction,
     std::enable_if_t<is_dynamic_policy_v<Policy>, int> = 0>
 void
 for_each(
    Policy policy,
-   Iterator begin, Iterator end,
+   T* begin, T* end,
    UnaryFunction worker)
 {
     // Shared pointer to the next item to process
-    Iterator next = begin;
+    T* next = begin;
     // Pick the right execution policy for each worker to use
     using serial = remove_parallel_t<Policy>;
+    dyn_worker<serial, T, UnaryFunction> worker_thread(
+        &next, end, policy.grain_, worker);
     // Create a worker thread for each execution slot
     for (long t = 0; t < threads_per_nodelet; ++t) {
         // Create and spawn the dyn_worker functor, which captures a reference
         // to the next pointer, the end pointer, and the grain size.
-        cilk_spawn dyn_worker<serial, Iterator, UnaryFunction>(
-            &next, end, policy.grain_, worker)();
+        cilk_spawn worker_thread();
+    }
+}
+
+// Special overload for nlet_stride_iterator, pulls the raw pointer out
+// of the iterator and mulitplies stride by NODELETS() before handing off
+// to the functor
+template<class Policy, class T, class UnaryFunction,
+    std::enable_if_t<is_dynamic_policy_v<Policy>, int> = 0>
+void
+for_each(
+    Policy policy,
+    nlet_stride_iterator<T*> s_begin, nlet_stride_iterator<T*> s_end,
+    UnaryFunction worker)
+{
+    // Shared pointer to the next item to process
+    T* next = &*s_begin;
+    T* end = &*s_end;
+    // Pick the right execution policy for each worker to use
+    using serial = remove_parallel_t<Policy>;
+    dyn_worker<serial, T, UnaryFunction> worker_thread(
+        &next, end, policy.grain_ * NODELETS(), worker);
+    // Create a worker thread for each execution slot
+    for (long t = 0; t < threads_per_nodelet; ++t) {
+        // Create and spawn the dyn_worker functor, which captures a reference
+        // to the next pointer, the end pointer, and the grain size.
+        cilk_spawn worker_thread();
     }
 }
 
