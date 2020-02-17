@@ -45,9 +45,9 @@ void repl_for_each(
     }
 }
 
-template<typename T, typename Function>
+template<long Grain, class T, class Function>
 void repl_for_each(
-    parallel_policy,
+    parallel_policy<Grain>,
     T & repl_ref, Function worker
 ){
     assert(emu::pmanip::is_repl(&repl_ref));

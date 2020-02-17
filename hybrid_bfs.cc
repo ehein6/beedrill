@@ -79,7 +79,7 @@ hybrid_bfs::top_down_step_with_migrating_threads()
         worklist_.append(src, g_->out_edges_begin(src), g_->out_edges_end(src));
     });
 
-    worklist_.process_all(dynamic_policy(64),
+    worklist_.process_all(dynamic_policy<64>(),
         [this](long src, long dst) {
             // Look up the parent of the vertex we are visiting
             long * parent = &parent_[dst];

@@ -91,9 +91,10 @@ public:
 
 private:
     // Worker function spawned in dynamic process_all
-    template<class Visitor>
-    void worker(Visitor visitor, long grain)
+    template<class Visitor, long Grain>
+    void worker(Visitor visitor)
     {
+        long grain = Grain;
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Get end pointer for the vertex list of src
@@ -113,6 +114,7 @@ private:
             // This vertex is done, move to the next one
         }
     }
+
 public:
     /**
      * Process the edges in the worklist in parallel
@@ -122,18 +124,18 @@ public:
      * @param visitor Lambda function to call on each edge, with signature:
      *  @c void (long src, long dst)
      */
-    template<class Visitor>
-    void process(emu::dynamic_policy policy, Visitor visitor)
+    template<class Visitor, long Grain>
+    void process(emu::dynamic_policy<Grain> policy, Visitor visitor)
     {
         for (long t = 0; t < emu::threads_per_nodelet; ++t) {
-            cilk_spawn worker(visitor, policy.grain_);
+            cilk_spawn worker<Visitor, Grain>(visitor);
         }
     }
 
-    template<class Visitor>
-    void process(emu::parallel_policy policy, Visitor visitor)
+    template<class Visitor, long Grain>
+    void process(emu::parallel_policy<Grain> policy, Visitor visitor)
     {
-        long grain = policy.grain_;
+        long grain = Grain;
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             long * end = edges_end_[src];
