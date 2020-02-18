@@ -40,11 +40,27 @@ struct dist_edge_list
     // Smart pointer to a replicated dist_edge_list
     using handle = std::unique_ptr<emu::repl_shallow<dist_edge_list>>;
 
+    /**
+     * Load edge list from matrix market (.mtx) file
+     * @param filename
+     * @return
+     */
+    static handle
+    load(const char* filename);
+
     // Creates distributed edge list from file
     // Supports files that are larger than the memory of a single
     // nodelet by doing a buffered load
     static handle
-    load(const char* filename);
+    load_binary(const char* filename);
+
+    /**
+     * Load edge list from matrix market (.mtx) file
+     * @param filename
+     * @return
+     */
+    static handle
+    load_mtx(const char* filename);
 
     // Creates distributed edge list from file
     // Reads from all nodelets at once

@@ -59,6 +59,8 @@ add_library(graph STATIC
     graph.cc
     dist_edge_list.h
     dist_edge_list.cc
+    mmio.c
+    mmio.h
 )
 link_libraries(graph)
 
