@@ -47,6 +47,12 @@ endfunction()
 #    -Wfatal-errors
 #)
 
+add_library(mmio
+    mmio.c
+    mmio.h
+)
+link_libraries(mmio)
+
 # Build graph generator
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
     add_subdirectory(generator)
@@ -59,8 +65,6 @@ add_library(graph STATIC
     graph.cc
     dist_edge_list.h
     dist_edge_list.cc
-    mmio.c
-    mmio.h
 )
 link_libraries(graph)
 
