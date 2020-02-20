@@ -402,15 +402,14 @@ long
 hybrid_bfs::count_num_traversed_edges()
 {
     auto sum = emu::make_repl<long>(0);
-    g_->for_each_vertex([&] (long v) {
+    g_->for_each_vertex(fixed, [this, &sum] (long v) {
         if (parent_[v] >= 0) {
-            REMOTE_ADD(&sum->get(), g_->out_degree(v));
+            emu::remote_add(&sum->get(), g_->out_degree(v));
         }
     });
 
-    // FIXME reduce sum;
     // Divide by two, since each undirected edge is counted twice
-    return emu::repl_reduce(*sum, std::plus<long>()) / 2;
+    return emu::repl_reduce(*sum, std::plus<>()) / 2;
 }
 
 void
