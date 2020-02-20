@@ -130,3 +130,12 @@ install(TARGETS pagerank RUNTIME DESTINATION ".")
 add_emusim_test( "pagerank"
     pagerank.mwx --graph ${TEST_GRAPH} --check_results
 )
+
+add_executable(combined
+    combined.cc
+    hybrid_bfs.cc hybrid_bfs.h
+    components.cc components.h
+    pagerank.cc pagerank.h
+    tc.cc tc.h
+)
+install(TARGETS combined RUNTIME DESTINATION ".")
