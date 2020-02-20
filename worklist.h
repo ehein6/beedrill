@@ -1,3 +1,4 @@
+#pragma once
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/intrinsics.h>
 #include <emu_cxx_utils/execution_policy.h>
