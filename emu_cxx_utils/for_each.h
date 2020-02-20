@@ -230,12 +230,23 @@ for_each(
 template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
-   sequenced_policy,
-   Iterator begin, Iterator end, UnaryFunction worker
+    sequenced_policy,
+    Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // Forward to standard library implementation
     // TODO process one stripe at a time to minimize migrations
     std::for_each(begin, end, worker);
+}
+
+// Serial version for striped layouts
+template<class Iterator, class UnaryFunction>
+void
+striped_for_each(
+    unroll_policy,
+    Iterator begin, Iterator end, UnaryFunction worker
+) {
+    // TODO process one stripe at a time to minimize migrations
+    unroller<Iterator, UnaryFunction>{worker}(begin, end);
 }
 
 // Entry point for all parallel policies with striped layouts
