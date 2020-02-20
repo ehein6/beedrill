@@ -73,7 +73,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
         if (err < epsilon)
             break;
     }
-    return iter + 1;
+    return iter;
 }
 
 void
