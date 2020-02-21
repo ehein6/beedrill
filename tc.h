@@ -10,10 +10,9 @@ private:
     emu::repl<long> num_triangles_;
     // Reduction variable for number of two-paths in the graph
     emu::repl<long> num_twopaths_;
-
+    // Work list of edges to process
     worklist worklist_;
 
-    void check_edge(long u, long v);
 public:
     explicit triangle_count(graph& g);
     triangle_count(const triangle_count& other, emu::shallow_copy);
