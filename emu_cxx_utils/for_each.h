@@ -254,30 +254,48 @@ template<class Policy, class Iterator, class UnaryFunction>
 void
 striped_for_each(
    Policy policy,
+   long nlet_begin, long nlet_end,
    Iterator begin, Iterator end,
    UnaryFunction worker
 ) {
-   // Total number of elements
-   auto size = end - begin;
-   // Number of elements in each range
-   auto stripe_size = size / NODELETS();
-   // How many nodelets have an extra element?
-   auto stripe_remainder = size % NODELETS();
-   // Spawn a thread on each nodelet:
-   for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-       // 1. Convert from iterator to raw pointer
-       // 2. Advance to the first element on the nth nodelet
-       // 3. Convert to striped iterator
-       auto stripe_begin = nlet_stride_iterator<Iterator>(begin + nlet);
-       // Now that the pointer has stride NODELETS(), we are addressing only
-       // the elements on the nth nodelet
-       auto stripe_end = stripe_begin + stripe_size;
-       // Distribute remainder among first few nodelets
-       if (nlet < stripe_remainder) { stripe_end += 1; }
-       // Spawn a thread to handle each stripe
-       cilk_spawn_at(ptr_from_iter(stripe_begin)) detail::for_each(
-           policy, stripe_begin, stripe_end, worker);
-   }
+    // Recursive spawn
+    for(;;) {
+        // How many nodelets do we need to spawn on?
+        auto nlet_count = nlet_end - nlet_begin;
+        const long nlet_radix = 8;
+        if (nlet_count <= nlet_radix) { break; }
+        // Divide the nodelets in half
+        long nlet_mid = nlet_begin + nlet_count / 2;
+        // Spawn a thread to handle the upper half
+        cilk_migrate_hint(ptr_from_iter(begin + nlet_mid));
+        cilk_spawn striped_for_each(
+            policy, nlet_mid, nlet_end, begin, end, worker);
+        // Recurse over the lower half
+        nlet_end = nlet_mid;
+    }
+
+    // Serial spawn
+    // Total number of elements
+    auto size = end - begin;
+    // Number of elements in each range
+    auto stripe_size = size / NODELETS();
+    // How many nodelets have an extra element?
+    auto stripe_remainder = size % NODELETS();
+    // For each nodelet in my subrange...
+    for (long nlet = nlet_begin; nlet < nlet_end; ++nlet) {
+        // Advance to the first element on the nth nodelet and convert
+        // to striped iterator
+        auto stripe_begin = nlet_stride_iterator<Iterator>(begin + nlet);
+        // Now that the pointer has stride NODELETS(), we are addressing
+        // only the elements on the nth nodelet
+        auto stripe_end = stripe_begin + stripe_size;
+        // Distribute remainder among first few nodelets
+        if (nlet < stripe_remainder) { stripe_end += 1; }
+        // Spawn a thread to handle each stripe
+        cilk_migrate_hint(ptr_from_iter(stripe_begin));
+        cilk_spawn detail::for_each(
+            policy, stripe_begin, stripe_end, worker);
+    }
 }
 
 } // end namespace detail
@@ -295,7 +313,7 @@ for_each(
    if (end-begin == 0) {
        return;
    } else if (is_striped(begin)) {
-       detail::striped_for_each(policy, begin, end, worker);
+       detail::striped_for_each(policy, 0, NODELETS(), begin, end, worker);
    } else {
        detail::for_each(policy, begin, end, worker);
    }
