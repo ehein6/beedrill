@@ -231,6 +231,7 @@ template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
     sequenced_policy,
+    long nlet_begin, long nlet_end,
     Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // Forward to standard library implementation
@@ -243,6 +244,7 @@ template<class Iterator, class UnaryFunction>
 void
 striped_for_each(
     unroll_policy,
+    long nlet_begin, long nlet_end,
     Iterator begin, Iterator end, UnaryFunction worker
 ) {
     // TODO process one stripe at a time to minimize migrations
