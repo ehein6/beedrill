@@ -16,7 +16,7 @@ public:
     }
 
     repl_array(const repl_array &other, emu::shallow_copy)
-        : data_(other.data_), size_(other.size) {
+        : data_(other.data_), size_(other.size_) {
     }
 
     ~repl_array() {
@@ -35,7 +35,7 @@ public:
         return emu::pmanip::get_localto(data_, other);
     }
 
-    const T * get_localto(void * other) const {
+    const T * get_localto(const void * other) const {
         return emu::pmanip::get_localto(data_, other);
     }
 

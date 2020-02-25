@@ -51,7 +51,7 @@ bool is_striped(const T * ptr){
  * Returns the nodelet number from a pointer
  * Result is undefined if view != 1
  */
-inline long get_nodelet(void * ptr)
+inline long get_nodelet(const void * ptr)
 {
 #ifdef __le64__
     return mw_ptrtonodelet(ptr);
