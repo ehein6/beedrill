@@ -294,9 +294,9 @@ hybrid_bfs::check(long source)
     while (!q.empty()) {
         long u = q.front(); q.pop();
         // For each out-neighbor of this vertex...
-        long * edges_begin = g_->out_neighbors(u);
-        long * edges_end = edges_begin + g_->out_degree(u);
-        for (long * e = edges_begin; e < edges_end; ++e) {
+        auto edges_begin = g_->out_neighbors(u);
+        auto edges_end = edges_begin + g_->out_degree(u);
+        for (auto e = edges_begin; e < edges_end; ++e) {
             long v = *e;
             // Add unexplored neighbors to the queue
             if (depth[v] == -1) {
@@ -347,9 +347,9 @@ hybrid_bfs::check(long source)
             // Verify that this vertex is connected to its parent
             bool parent_found = false;
             // For all in-edges...
-            long * edges_begin = g_->out_neighbors(u);
-            long * edges_end = edges_begin + g_->out_degree(u);
-            for (long * iter = edges_begin; iter < edges_end; ++iter) {
+            auto edges_begin = g_->out_neighbors(u);
+            auto edges_end = edges_begin + g_->out_degree(u);
+            for (auto iter = edges_begin; iter < edges_end; ++iter) {
                 long v = *iter;
                 // If v is the parent of u, their depths should differ by 1
                 if (v == parent_[u]) {

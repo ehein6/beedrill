@@ -118,7 +118,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
 
         worklist_.process_all_ranges(dynamic_policy<256>(),
             [contrib=contrib_.data(),incoming=incoming_.data()]
-            (long src, long * e1, long * e2) {
+            (long src, graph::edge_iterator e1, graph::edge_iterator e2) {
                 // Sum incoming contribution from all my neighbors
                 my_reducer accum(incoming[src]);
                 for_each(unroll, e1, e2,

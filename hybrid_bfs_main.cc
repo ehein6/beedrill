@@ -163,7 +163,7 @@ int main(int argc, char ** argv)
 
     // Build the graph
     LOG("Constructing graph...\n");
-    auto g = graph::from_edge_list(*dist_el);
+    auto g = create_graph_from_edge_list<graph>(*dist_el);
     if (args.sort_edge_blocks) {
         LOG("Sorting edge lists by nodelet...\n");
         g->sort_edge_lists([](long lhs, long rhs) {

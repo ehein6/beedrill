@@ -20,7 +20,7 @@ private:
     emu::repl<double> base_score_;
     emu::repl<double> damping_;
 
-    worklist worklist_;
+    worklist<graph::edge_type> worklist_;
 public:
     explicit pagerank(graph & g);
     pagerank(const pagerank& other, emu::shallow_copy tag);

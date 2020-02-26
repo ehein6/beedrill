@@ -45,7 +45,9 @@ triangle_count::clear()
  * @return Number of neighbors that u and v have in common
  */
 noinline long
-intersection(long * vw, long * vw_end, long * uw)
+intersection(
+    graph::edge_iterator vw, graph::edge_iterator vw_end,
+    graph::edge_iterator uw)
 {
     long count = 0;
     // Handle one at a time until the number of edges is divisible by 4

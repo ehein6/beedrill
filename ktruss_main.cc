@@ -4,8 +4,7 @@
 
 #include "graph.h"
 #include "dist_edge_list.h"
-#include "tc.h"
-#include "graph_base.h"
+#include "ktruss.h"
 
 const struct option long_options[] = {
     {"graph_filename"   , required_argument},
@@ -103,7 +102,7 @@ int main(int argc, char ** argv)
     if (active_region != NULL) {
         hooks_set_active_region(active_region);
     } else {
-        hooks_set_active_region("tc");
+        hooks_set_active_region("ktruss");
     }
 
     // Parse command-line arguments
@@ -118,7 +117,7 @@ int main(int argc, char ** argv)
 
     // Build the graph
     LOG("Constructing graph...\n");
-    auto g = create_graph_from_edge_list<graph>(*dist_el);
+    auto g = create_graph_from_edge_list<ktruss_graph>(*dist_el);
     LOG("Sorting edge lists...\n");
     g->sort_edge_lists([](long lhs, long rhs) { return lhs < rhs; });
 
@@ -138,32 +137,30 @@ int main(int argc, char ** argv)
     }
 
     // Initialize the algorithm
-    LOG("Initializing TC data structures...\n");
-    auto tc = emu::make_repl_shallow<triangle_count>(*g);
+    LOG("Initializing ktruss data structures...\n");
+    auto kt = emu::make_repl_shallow<ktruss>(*g);
 
     // Run multiple trials of the algorithm
     for (long trial = 0; trial < args.num_trials; ++trial) {
         // Clear out the data structures
-        tc->clear();
+        kt->clear();
 
         LOG("Counting triangles...\n");
-        hooks_region_begin("tc");
-        triangle_count::stats s = tc->run();
-        hooks_set_attr_i64("num_triangles", s.num_triangles);
-        hooks_set_attr_i64("num_twopaths", s.num_twopaths);
+        hooks_region_begin("ktruss");
+        ktruss::stats s = kt->run();
+        hooks_set_attr_i64("max_k", s.max_k);
         double time_ms = hooks_region_end();
 
-        LOG("Found %li triangles and %li two-paths in %3.2f ms, %3.2f MTPPS \n",
-            s.num_triangles,
-            s.num_twopaths,
-            time_ms,
-            (1e-9 * s.num_twopaths) / (1e-3 * time_ms)
-        );
+        LOG("Computed k-truss in %3.2f ms, max k is %li\n", time_ms, s.max_k);
+        for (long k = 2; k <= s.max_k; ++k) {
+            LOG("\t%li-truss: %li vertices and %li edges\n",
+                k, s.vertices_per_truss[k], s.edges_per_truss[k]);
+        }
     }
 
     if (args.check_results) {
         LOG("Checking results...\n");
-        if (tc->check()) {
+        if (kt->check()) {
             LOG("PASS\n");
         } else {
             LOG("FAIL\n");

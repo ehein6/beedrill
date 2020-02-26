@@ -4,6 +4,7 @@
 #include <emu_cxx_utils/execution_policy.h>
 #include <cilk/cilk.h>
 
+template<class Edge>
 class worklist {
 private:
     // The first vertex in the work list
@@ -17,9 +18,9 @@ private:
     // Next vertex ID to process (next pointer in linked list)
     emu::striped_array<long> next_vertex_;
     // Pointer to start of edge list to process
-    emu::striped_array<long*> edges_begin_;
+    emu::striped_array<Edge*> edges_begin_;
     // Pointer past the end of edge list to process
-    emu::striped_array<long*> edges_end_;
+    emu::striped_array<Edge*> edges_end_;
 
 public:
 
@@ -75,7 +76,7 @@ public:
      * @param edges_begin Pointer to start of edge list to append
      * @param edges_end Pointer past the end of the edge list to append
      */
-    void append(long src, long * edges_begin, long * edges_end)
+    void append(long src, Edge * edges_begin, Edge * edges_end)
     {
         assert(emu::pmanip::is_repl(this));
         // Get the pointer from the nodelet where src vertex lives
@@ -99,9 +100,9 @@ private:
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Get end pointer for the vertex list of src
-            long * edges_end = edges_end_[src];
+            auto edges_end = edges_end_[src];
             // Try to atomically grab some edges to process for this vertex
-            long *e1, *e2;
+            Edge *e1, *e2;
             for (e1 = emu::atomic_addms(&edges_begin_[src], grain);
                  e1 < edges_end;
                  e1 = emu::atomic_addms(&edges_begin_[src], grain))
@@ -189,7 +190,7 @@ public:
     void process_all_edges(Policy policy, Visitor visitor)
     {
         process_all_ranges(policy,
-            [visitor](long src, long * begin, long * end) {
+            [visitor](long src, Edge * begin, Edge * end) {
                 for (auto e = begin; e != end; ++e) {
                     visitor(src, *e);
                 }
