@@ -6,7 +6,7 @@ class components
 {
 private:
     emu::repl<graph*> g_;
-    worklist worklist_;
+    worklist<graph::edge_type> worklist_;
 public:
     // Component that this vertex belongs to
     emu::striped_array<long> component_;

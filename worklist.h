@@ -4,6 +4,7 @@
 #include <emu_cxx_utils/execution_policy.h>
 #include <cilk/cilk.h>
 
+template<class Edge>
 class worklist {
 private:
     // The first vertex in the work list
@@ -17,9 +18,9 @@ private:
     // Next vertex ID to process (next pointer in linked list)
     emu::striped_array<long> next_vertex_;
     // Pointer to start of edge list to process
-    emu::striped_array<long*> edges_begin_;
+    emu::striped_array<Edge*> edges_begin_;
     // Pointer past the end of edge list to process
-    emu::striped_array<long*> edges_end_;
+    emu::striped_array<Edge*> edges_end_;
 
 public:
 
@@ -75,7 +76,7 @@ public:
      * @param edges_begin Pointer to start of edge list to append
      * @param edges_end Pointer past the end of the edge list to append
      */
-    void append(long src, long * edges_begin, long * edges_end)
+    void append(long src, Edge * edges_begin, Edge * edges_end)
     {
         assert(emu::pmanip::is_repl(this));
         // Get the pointer from the nodelet where src vertex lives
@@ -99,16 +100,16 @@ private:
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Get end pointer for the vertex list of src
-            long * edges_end = edges_end_[src];
+            auto edges_end = edges_end_[src];
             // Try to atomically grab some edges to process for this vertex
-            long *e1, *e2;
+            Edge *e1, *e2;
             for (e1 = emu::atomic_addms(&edges_begin_[src], grain);
                  e1 <= edges_end;
                  e1 = emu::atomic_addms(&edges_begin_[src], grain))
             {
                 e2 = e1 + grain; if (e2 > edges_end) { e2 = edges_end; }
                 // Visit each edge
-                for (long * e = e1; e < e2; ++e) {
+                for (auto e = e1; e < e2; ++e) {
                     visitor(src, *e);
                 }
             }
@@ -139,9 +140,9 @@ public:
         long grain = Grain;
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
-            long * end = edges_end_[src];
+            auto end = edges_end_[src];
             // Spawn a thread for each granule
-            for (long * e = edges_begin_[src]; e < end; e += grain) {
+            for (auto e = edges_begin_[src]; e < end; e += grain) {
                 auto last = e + grain <= end ? e + grain : end;
                 cilk_spawn std::for_each(e, last, [src, visitor](long dst){
                     visitor(src, dst);
@@ -162,7 +163,7 @@ public:
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Visit each edge for this vertex
-            for (long * e = edges_begin_[src]; e != edges_end_[src]; ++e) {
+            for (auto e = edges_begin_[src]; e != edges_end_[src]; ++e) {
                 visitor(src, *e);
             }
             // This vertex is done, move to the next one

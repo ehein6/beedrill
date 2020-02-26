@@ -105,6 +105,20 @@ add_emusim_test( "components"
     components.mwx --graph ${TEST_GRAPH} --check_results
 )
 
+# K-truss
+add_executable(ktruss
+    ktruss.h
+    ktruss.cc
+    ktruss_graph.h
+    ktruss_graph.cc
+    ktruss_main.cc
+)
+install(TARGETS ktruss RUNTIME DESTINATION ".")
+
+add_emusim_test( "ktruss"
+    ktruss.mwx --graph ${TEST_GRAPH} --check_results
+)
+
 # Triangle Count
 
 add_executable(triangle_count

@@ -22,7 +22,7 @@ private:
     emu::repl<long> scout_count_;
     emu::repl<long> awake_count_;
 
-    worklist worklist_;
+    worklist<graph::edge_type> worklist_;
 
     void dump_queue_stats();
 

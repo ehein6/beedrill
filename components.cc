@@ -181,9 +181,9 @@ components::check()
         while (!q.empty()) {
             long u = q.front(); q.pop();
             // For each out-neighbor of this vertex...
-            long * edges_begin = g_->out_neighbors(u);
-            long * edges_end = edges_begin + g_->out_degree(u);
-            for (long * e = edges_begin; e < edges_end; ++e) {
+            auto edges_begin = g_->out_neighbors(u);
+            auto edges_end = edges_begin + g_->out_degree(u);
+            for (auto e = edges_begin; e < edges_end; ++e) {
                 long v = *e;
                 // Check that all neighbors have the same component ID
                 if (component_[v] != my_component) {

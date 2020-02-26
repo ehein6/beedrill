@@ -74,6 +74,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             error_ += fabs(scores_[src] - old_score);
         });
         double err = repl_reduce(error_, std::plus<>());
+        LOG("iter %i, err = %3.2e\n", iter, err);
         if (err < epsilon)
             break;
     }
@@ -105,5 +106,7 @@ pagerank::check(double damping, double target_error)
     incoming_sums[n] = 0;
   });
 
+  LOG("Error (%3.2e) is greater than epsilon (%3.2e)\n",
+      error, target_error);
   return error < target_error;
 }

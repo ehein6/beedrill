@@ -122,7 +122,7 @@ int main(int argc, char ** argv)
 
     // Build the graph
     LOG("Constructing graph...\n");
-    auto g = graph::from_edge_list(*dist_el);
+    auto g = create_graph_from_edge_list<graph>(*dist_el);
 
     g->print_distribution();
     if (args.check_graph) {
