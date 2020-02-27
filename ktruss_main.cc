@@ -33,7 +33,7 @@ print_help(const char* argv0)
     LOG("\t--help               Print command line help\n");
 }
 
-struct tc_args
+struct ktruss_args
 {
     const char* graph_filename;
     bool distributed_load;
@@ -43,10 +43,10 @@ struct tc_args
     bool dump_graph;
     bool check_results;
 
-    static tc_args
+    static ktruss_args
     parse(int argc, char *argv[])
     {
-        tc_args args = {};
+        ktruss_args args = {};
         args.graph_filename = NULL;
         args.distributed_load = false;
         args.num_trials = 1;
@@ -106,7 +106,7 @@ int main(int argc, char ** argv)
     }
 
     // Parse command-line arguments
-    tc_args args = tc_args::parse(argc, argv);
+    ktruss_args args = ktruss_args::parse(argc, argv);
 
     // Load edge list from file
     auto dist_el = dist_edge_list::load(args.graph_filename);
@@ -154,7 +154,9 @@ int main(int argc, char ** argv)
         LOG("Computed k-truss in %3.2f ms, max k is %li\n", time_ms, s.max_k);
         for (long k = 2; k <= s.max_k; ++k) {
             LOG("\t%li-truss: %li vertices and %li edges\n",
-                k, s.vertices_per_truss[k], s.edges_per_truss[k]);
+            // NOTE There is no 0-truss or 1-truss, so edges_per_truss[0] is
+            // used for the 2-truss, and so on
+            k, s.vertices_per_truss[k-2], s.edges_per_truss[k-2]);
         }
     }
 
