@@ -1,3 +1,4 @@
+#include <vector>
 #include <emu_cxx_utils/replicated.h>
 #include "ktruss_graph.h"
 #include "worklist.h"
