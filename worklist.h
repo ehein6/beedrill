@@ -181,9 +181,10 @@ public:
     void process_all(Policy policy, Visitor visitor)
     {
         assert(emu::pmanip::is_repl(this));
-        emu::repl_for_each(emu::par, *this, [policy, visitor](worklist & w) {
-            w.process(policy, visitor);
-        });
+        emu::repl_for_each(emu::parallel_policy<1>(), *this,
+            [policy, visitor](worklist & w) {
+                w.process(policy, visitor);
+            }
+        );
     }
-
 };

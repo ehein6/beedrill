@@ -32,36 +32,62 @@
  */
 
 namespace emu {
+namespace detail {
 
 template<typename T, typename Function>
 void repl_for_each(
     sequenced_policy,
+    long nlet_begin, long nlet_end,
     T &repl_ref, Function worker
-){
-    assert(emu::pmanip::is_repl(&repl_ref));
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
+) {
+    for (long nlet = nlet_begin; nlet < nlet_end; ++nlet) {
+        T &remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
         worker(remote_ref);
     }
 }
 
 template<long Grain, class T, class Function>
 void repl_for_each(
-    parallel_policy<Grain>,
-    T & repl_ref, Function worker
-){
-    assert(emu::pmanip::is_repl(&repl_ref));
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        T& remote_ref = *emu::pmanip::get_nth(&repl_ref, nlet);
-        cilk_spawn_at(&remote_ref) worker(repl_ref);
+    parallel_policy<Grain> policy,
+    long nlet_begin, long nlet_end,
+    T &repl_ref, Function worker
+) {
+    constexpr long grain = Grain;
+    // Recursive spawn
+    for(;;) {
+        // How many nodelets do we need to spawn on?
+        auto nlet_count = nlet_end - nlet_begin;
+        if (nlet_count <= grain) { break; }
+        // Divide the nodelets in half
+        long nlet_mid = nlet_begin + nlet_count / 2;
+        // Spawn a thread to handle the upper half
+        cilk_migrate_hint(emu::pmanip::get_nth(&repl_ref, nlet_mid));
+        cilk_spawn repl_for_each(
+            policy, nlet_mid, nlet_end, repl_ref, worker);
+        // Recurse over the lower half
+        nlet_end = nlet_mid;
     }
+    // Serial execution
+    repl_for_each(seq, nlet_begin, nlet_end, repl_ref, worker);
 }
 
-template<typename T, typename Function>
-void repl_for_each(
-    T & repl_ref, Function worker
-){
-    repl_for_each(seq, repl_ref, worker);
+} // end namespace detail
+
+template<class Policy, class T, class Function,
+    // Disable if first argument is not an execution policy
+    std::enable_if_t<is_execution_policy_v<Policy>, int> = 0
+>
+void repl_for_each(Policy policy, T & repl_ref, Function worker)
+{
+    assert(emu::pmanip::is_repl(&repl_ref));
+    detail::repl_for_each(policy, 0, NODELETS(), repl_ref, worker);
+}
+
+template<class T, class Function>
+void repl_for_each(T & repl_ref, Function worker)
+{
+    assert(emu::pmanip::is_repl(&repl_ref));
+    detail::repl_for_each(seq, 0, NODELETS(), repl_ref, worker);
 }
 
 /**
