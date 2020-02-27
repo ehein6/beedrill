@@ -10,24 +10,29 @@ using namespace emu::parallel;
 
 ktruss::ktruss(ktruss_graph & g)
 : g_(&g)
+, active_edges_end_(g.num_vertices())
 , vertex_max_k_(g.num_vertices())
 , worklist_(g.num_vertices())
-{
-}
+{}
 
 ktruss::ktruss(const ktruss& other, emu::shallow_copy shallow)
 : g_(other.g_)
+, active_edges_end_(other.active_edges_end_, shallow)
 , vertex_max_k_(other.vertex_max_k_, shallow)
 , worklist_(other.worklist_, shallow)
-{
-}
+{}
 
 void
 ktruss::clear()
 {
-    // Init all edge property values to zero
     g_->for_each_vertex(dyn, [this](long src) {
+        // Shrink edge lists to only consider edges that connect to vertices
+        // with lower vertex ID's. Essentially making this a directed graph
+        active_edges_end_[src] = std::lower_bound(
+            g_->out_edges_begin(src), g_->out_edges_end(src), src);
+        // Init vertex K values to zero
         vertex_max_k_[src] = 0;
+        // Init all edge property values to zero
         g_->for_each_out_edge(src, [](ktruss_edge_slot &dst) {
             dst.TC = 0;
             dst.qrC = 0;
@@ -41,10 +46,9 @@ ktruss::build_worklist()
 {
     worklist_.clear_all();
     g_->for_each_vertex(fixed, [this](long p) {
-        // Use binary search to find neighbors of p that are less than p
+        // Add all active edges of p to the worklist
         auto q_begin = g_->out_edges_begin(p);
-        auto q_end = std::lower_bound(q_begin, g_->out_edges_end(p), p);
-        // Add these edges to the work list
+        auto q_end = active_edges_end_[p];
         if (q_begin != q_end) {
             worklist_.append(p, q_begin, q_end);
         }
@@ -60,7 +64,7 @@ ktruss::count_initial_triangles()
         long q = pq.dst;
         // Range of q's neighbors that are less than q
         auto qr_begin = g_->out_edges_begin(q);
-        auto qr_end = std::lower_bound(qr_begin, g_->out_edges_end(q), q);
+        auto qr_end = active_edges_end_[q];
         // Iterator over edges of p
         auto pr = g_->out_edges_begin(p);
 
@@ -101,12 +105,13 @@ ktruss::unroll_wedges(long k)
         long q = pq.dst;
         // If the edge p->q will be removed, unroll all affected triangles
         // Basically triangle count in reverse
+        assert(pq.TC >= 0);
         if (pq.TC < k - 2) {
             // Iterator over edges of p
             auto pr = g_->out_edges_begin(p);
             // Range of q's neighbors that are less than q
             auto qr_begin = g_->out_edges_begin(q);
-            auto qr_end = std::lower_bound(qr_begin, g_->out_edges_end(q), q);
+            auto qr_end = active_edges_end_[q];
             for (auto qr = qr_begin; qr != qr_end; ++qr){
                 while (*pr < *qr) { pr++; }
                 if (*qr == *pr) {
@@ -127,7 +132,7 @@ ktruss::unroll_wedges(long k)
             auto qr = g_->out_edges_begin(q);
             // For each vertex r (neighbors of p that are less than q)
             auto pr_begin = g_->out_edges_begin(p);
-            auto pr_end = std::lower_bound(pr_begin, g_->out_edges_end(p), q);
+            auto pr_end = std::lower_bound(pr_begin, active_edges_end_[p], q);
             for (auto pr = pr_begin; pr != pr_end; ++pr) {
                 // Will the edge be removed?
                 if (pr->TC < k - 2) {
@@ -154,6 +159,8 @@ ktruss::unroll_supported_triangles(long k)
     // Process all q->r edges with a thread pool
     worklist_.process_all_edges(dyn, [this, k](long q, ktruss_edge_slot& qr)
     {
+        assert(qr.TC >= 0);
+        assert(qr.qrC >= 0);
         if (qr.TC < k - 2 && qr.qrC > 0) {
             // Range of q's neighbors that are GREATER than q
             // i.e. we are looking at edges in the other direction
@@ -183,7 +190,7 @@ ktruss::remove_edges(long k)
     g_->for_each_vertex(emu::dyn, [&](long v){
         // Get the edge list for this vertex
         auto begin = g_->out_edges_begin(v);
-        auto end = std::lower_bound(begin, g_->out_edges_end(v), v);
+        auto end = active_edges_end_[v];
         // Move all edges with TC == 0 to the end of the list
         auto remove_begin = std::stable_partition(begin, end,
             [](ktruss_edge_slot& e) {
@@ -196,7 +203,8 @@ ktruss::remove_edges(long k)
                 e.KTE = k - 1;
             });
             // Resize the edge list to drop the edges off the end
-            g_->set_out_degree(v, remove_begin - begin);
+            active_edges_end_[v] = remove_begin;
+            // Increment count of edges that were removed
             emu::remote_add(&num_removed, end - remove_begin);
         }
     });
@@ -207,23 +215,36 @@ ktruss::stats
 ktruss::compute_truss_sizes(long max_k)
 {
     stats s(max_k);
-    build_worklist();
+
+    // Build the worklist by hand to include all edges that were removed
+    worklist_.clear_all();
+    g_->for_each_vertex(fixed, [this](long p) {
+        // Use binary search to find neighbors of p that are less than p
+        auto q_begin = g_->out_edges_begin(p);
+        auto q_end = std::lower_bound(q_begin, g_->out_edges_end(p), p);
+        // Add these edges to the work list
+        if (q_begin != q_end) {
+            worklist_.append(p, q_begin, q_end);
+        }
+    });
+
     // Process all p->q edges with a thread pool
     worklist_.process_all_edges(dyn, [&](long src, ktruss_edge_slot& dst) {
         assert(dst.KTE >= 2);
         assert(dst.KTE <= max_k);
         // This vertex is a member of all trusses up through k
         emu::remote_max(&vertex_max_k_[src], dst.KTE);
+        emu::remote_max(&vertex_max_k_[dst], dst.KTE);
         // This edge is a member of all trusses up through k
         for (long k = 2; k <= dst.KTE; ++k) {
-            emu::remote_add(&s.edges_per_truss[k], 1);
+            emu::remote_add(&s.edges_per_truss[k-2], 1);
         }
     });
 
-    g_->for_each_vertex(fixed, [&](long src) {
+    g_->for_each_vertex(fixed, [&](long v) {
         // This edge is a member of all trusses up through k
-        for (long k = 2; k <= vertex_max_k_[src]; ++k) {
-            emu::remote_add(&s.vertices_per_truss[k], 1);
+        for (long k = 2; k <= vertex_max_k_[v]; ++k) {
+            emu::remote_add(&s.vertices_per_truss[k-2], 1);
         }
     });
     return s;
@@ -244,13 +265,16 @@ ktruss::run()
             unroll_supported_triangles(k);
             num_removed = remove_edges(k);
             num_edges -= num_removed;
-            LOG("Removed %li edges, %li edges remaning\n",
+            LOG("Removed %li edges, %li edges remaining\n",
                 num_removed, num_edges);
         } while (num_removed > 0);
-        LOG("Found the %li-truss ...\n", k);
+        LOG("Found the %li-truss\n", k);
         ++k;
-        g_->dump();
+        dump_graph();
     } while (num_edges > 0);
+    // The last iteration removed all edges and incremented k
+    // That means there was no k-1 truss found, max k is actually k-2
+    k -= 2;
 
     return compute_truss_sizes(k);
 }
@@ -261,4 +285,23 @@ ktruss::check()
 {
     // FIXME
     return false;
+}
+
+void
+ktruss::dump_graph()
+{
+    // Dump the active edges of the graph
+    for (long src = 0; src < g_->num_vertices(); ++src) {
+        auto edges_begin = g_->out_edges_begin(src);
+        auto edges_end = active_edges_end_[src];
+        if (edges_end - edges_begin > 0) {
+            LOG("%li ->", src);
+            for (auto e = edges_begin; e < edges_end; ++e) {
+                if (e->dst < src) {
+                    LOG(" %li", e->dst);
+                }
+            }
+            LOG("\n");
+        }
+    }
 }

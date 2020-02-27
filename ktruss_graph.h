@@ -31,18 +31,8 @@ extern template class graph_base<ktruss_edge_slot>;
  */
 class ktruss_graph : public graph_base<ktruss_edge_slot>
 {
-public:
-
+    // Inherit constructors
     using graph_base::graph_base;
-
-    // Allows us to remove edges from the graph
-    void
-    set_out_degree(long src, long degree)
-    {
-        assert(degree <= vertex_out_degree_[src]);
-        vertex_out_degree_[src] = degree;
-        // TODO how to decrement num_edges?
-    }
 
     friend std::unique_ptr<emu::repl_shallow<ktruss_graph>>
     create_graph_from_edge_list(dist_edge_list & dist_el);
