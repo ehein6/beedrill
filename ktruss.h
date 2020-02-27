@@ -31,6 +31,8 @@ private:
     worklist<ktruss_graph::edge_type> worklist_;
 
     // Helper functions
+    ktruss_graph::edge_type * find_edge(long src, long dst);
+    ktruss_graph::edge_type * find_reverse_edge(long q, long p);
     void build_worklist();
     void count_initial_triangles();
     void unroll_wedges(long k);

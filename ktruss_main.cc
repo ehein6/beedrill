@@ -145,7 +145,7 @@ int main(int argc, char ** argv)
         // Clear out the data structures
         kt->clear();
 
-        LOG("Counting triangles...\n");
+        LOG("Computing K-truss...\n");
         hooks_region_begin("ktruss");
         ktruss::stats s = kt->run();
         hooks_set_attr_i64("max_k", s.max_k);
