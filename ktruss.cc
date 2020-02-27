@@ -78,6 +78,19 @@ ktruss::count_initial_triangles()
     });
 }
 
+/**
+ * Recall p>q>r
+ *
+ * If we find an edge p->q that will be removed,
+ * Let r be the first neighbor of p that is less than q
+ * Search and unroll all triangles
+ *
+ * If there is a p->q that will NOT be removed, there may
+ * still be a p->r that will remove the triangle p->q->r
+ *
+ * @param k
+ */
+
 void
 ktruss::unroll_wedges(long k)
 {
@@ -86,14 +99,14 @@ ktruss::unroll_wedges(long k)
     worklist_.process_all_edges(dyn, [this, k](long p, ktruss_edge_slot& pq)
     {
         long q = pq.dst;
-        // Iterator over edges of p
-        auto pr = g_->out_edges_begin(p);
-
-        if (pq.TC < k - 2 || pr->TC < k - 2) {
+        // If the edge p->q will be removed, unroll all affected triangles
+        // Basically triangle count in reverse
+        if (pq.TC < k - 2) {
+            // Iterator over edges of p
+            auto pr = g_->out_edges_begin(p);
             // Range of q's neighbors that are less than q
             auto qr_begin = g_->out_edges_begin(q);
             auto qr_end = std::lower_bound(qr_begin, g_->out_edges_end(q), q);
-
             for (auto qr = qr_begin; qr != qr_end; ++qr){
                 while (*pr < *qr) { pr++; }
                 if (*qr == *pr) {
@@ -103,6 +116,31 @@ ktruss::unroll_wedges(long k)
                     emu::remote_add(&pr->TC, -1);
                     emu::remote_add(&qr->qrC, -1);
                     emu::remote_add(&g_->find_out_edge(q, p)->pRefC, -1);
+                }
+            }
+
+        // p->q will not be removed, but what about p->r?
+        // Look at all wedges p->(q, r)
+        // If any p->r will be deleted, check for q->r and unroll
+        } else {
+            // Iterator over neighbors of q
+            auto qr = g_->out_edges_begin(q);
+            // For each vertex r (neighbors of p that are less than q)
+            auto pr_begin = g_->out_edges_begin(p);
+            auto pr_end = std::lower_bound(pr_begin, g_->out_edges_end(p), q);
+            for (auto pr = pr_begin; pr != pr_end; ++pr) {
+                // Will the edge be removed?
+                if (pr->TC < k - 2) {
+                    // Look for edge q->r to complete the triangle
+                    while (*qr < *pr) { ++qr; }
+                    if (*qr == *pr) {
+                        // Unroll triangle
+                        emu::remote_add(&qr->TC, -1);
+                        emu::remote_add(&pq.TC, -1);
+                        emu::remote_add(&pr->TC, -1);
+                        emu::remote_add(&qr->qrC, -1);
+                        emu::remote_add(&g_->find_out_edge(q, p)->pRefC, -1);
+                    }
                 }
             }
         }
@@ -145,7 +183,7 @@ ktruss::remove_edges(long k)
     g_->for_each_vertex(emu::dyn, [&](long v){
         // Get the edge list for this vertex
         auto begin = g_->out_edges_begin(v);
-        auto end = g_->out_edges_end(v);
+        auto end = std::lower_bound(begin, g_->out_edges_end(v), v);
         // Move all edges with TC == 0 to the end of the list
         auto remove_begin = std::stable_partition(begin, end,
             [](ktruss_edge_slot& e) {
@@ -194,7 +232,9 @@ ktruss::compute_truss_sizes(long max_k)
 ktruss::stats
 ktruss::run()
 {
-    long num_edges = g_->num_edges() / 2;
+    long num_edges = g_->num_edges();
+    LOG("Initial graph has %li directed edges...\n", num_edges);
+    g_->dump();
     long num_removed = 0;
     count_initial_triangles();
     long k = 3;
@@ -204,8 +244,12 @@ ktruss::run()
             unroll_supported_triangles(k);
             num_removed = remove_edges(k);
             num_edges -= num_removed;
+            LOG("Removed %li edges, %li edges remaning\n",
+                num_removed, num_edges);
         } while (num_removed > 0);
-        ++k; LOG("Found the %li-truss...\n", k);
+        LOG("Found the %li-truss ...\n", k);
+        ++k;
+        g_->dump();
     } while (num_edges > 0);
 
     return compute_truss_sizes(k);
