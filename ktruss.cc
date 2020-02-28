@@ -5,7 +5,7 @@
 #include <cilk/cilk.h>
 #include <emu_c_utils/emu_c_utils.h>
 
-//#define VERBOSE_LOGGING
+#define VERBOSE_LOGGING
 
 #ifdef VERBOSE_LOGGING
 #define DEBUG(...) LOG(__VA_ARGS__)
@@ -163,18 +163,19 @@ ktruss::unroll_wedges(long k)
     worklist_.process_all_edges(dyn, [this, k](long p, ktruss_edge_slot& pq)
     {
         long q = pq.dst;
-        // If the edge p->q will be removed, unroll all affected triangles
-        // Basically triangle count in reverse
-        assert(pq.TC >= 0);
-        if (pq.TC < k - 2) {
-            DEBUG("(p->q) remove %li->%li\n", p, q);
-            // Iterator over edges of p
-            auto pr = g_->out_edges_begin(p);
-            // Range of q's neighbors that are less than q
-            auto qr_begin = g_->out_edges_begin(q);
-            auto qr_end = active_edges_end_[q];
-            for (auto qr = qr_begin; qr != qr_end; ++qr){
-                while (*pr < *qr) { pr++; }
+        auto qr = g_->out_edges_begin(q);
+#ifdef VERBOSE_LOGGING
+        if (pq.TC  < k - 2) { LOG("(p->q) remove %li->%li\n", p, q); }
+#endif
+        // Iterate over all wedges p->(q, r) where q > r
+        for (auto pr = g_->out_edges_begin(p); *pr < pq.dst; ++pr) {
+            // Will p->q or p->r be removed?
+            if (pq.TC < k - 2 || pr->TC < k - 2) {
+#ifdef VERBOSE_LOGGING
+                if (pq.TC >= k - 2 && pr->TC < k - 2) { LOG("(p->r) remove %li->%li\n", p, pr->dst); }
+#endif
+                // Search for q->r edge to complete the triangle
+                while (*qr < *pr) { ++qr; }
                 if (*qr == *pr) {
                     // Unroll triangle
                     DEBUG("Unrolling %li->%li->%li\n", p, q, pr->dst);
@@ -183,33 +184,6 @@ ktruss::unroll_wedges(long k)
                     emu::remote_add(&pr->TC, -1);
                     emu::remote_add(&qr->qrC, -1);
                     emu::remote_add(&find_reverse_edge(q, p)->pRefC, -1);
-                }
-            }
-
-        // p->q will not be removed, but what about p->r?
-        // Look at all wedges p->(q, r)
-        // If any p->r will be deleted, check for q->r and unroll
-        } else {
-            // Iterator over neighbors of q
-            auto qr = g_->out_edges_begin(q);
-            // For each vertex r (neighbors of p that are less than q)
-            auto pr_begin = g_->out_edges_begin(p);
-            auto pr_end = std::lower_bound(pr_begin, active_edges_end_[p], q);
-            for (auto pr = pr_begin; pr != pr_end; ++pr) {
-                // Will the edge be removed?
-                if (pr->TC < k - 2) {
-                    DEBUG("(p->r) remove %li->%li\n", p, pr->dst);
-                    // Look for edge q->r to complete the triangle
-                    while (*qr < *pr) { ++qr; }
-                    if (*qr == *pr) {
-                        // Unroll triangle
-                        DEBUG("Unrolling %li->%li->%li\n", p, q, pr->dst);
-                        emu::remote_add(&qr->TC, -1);
-                        emu::remote_add(&pq.TC, -1);
-                        emu::remote_add(&pr->TC, -1);
-                        emu::remote_add(&qr->qrC, -1);
-                        emu::remote_add(&find_reverse_edge(q, p)->pRefC, -1);
-                    }
                 }
             }
         }
