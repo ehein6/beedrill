@@ -74,9 +74,9 @@ struct dist_edge_list
     void forall_edges(Policy policy, Function worker)
     {
         emu::parallel::for_each(policy, src_.begin(), src_.end(),
-            [&](long& src) {
+            [this, src_begin=src_.begin(), worker](long& src) {
                 // HACK Compute index in table from the pointer
-                long i = &src - src_.begin();
+                long i = &src - src_begin;
                 long dst = dst_[i];
                 worker(src, dst);
             }
