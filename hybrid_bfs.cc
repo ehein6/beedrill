@@ -401,15 +401,16 @@ hybrid_bfs::print_tree()
 long
 hybrid_bfs::count_num_traversed_edges()
 {
-    auto sum = emu::make_repl<long>(0);
-    g_->for_each_vertex(fixed, [this, &sum] (long v) {
+    auto repl_sum = emu::make_repl<long>(0);
+    long * sum = &*repl_sum;
+    g_->for_each_vertex(fixed, [this, sum] (long v) {
         if (parent_[v] >= 0) {
-            emu::remote_add(&sum->get(), g_->out_degree(v));
+            emu::remote_add(sum, g_->out_degree(v));
         }
     });
 
     // Divide by two, since each undirected edge is counted twice
-    return emu::repl_reduce(*sum, std::plus<>()) / 2;
+    return emu::repl_reduce(*repl_sum, std::plus<>()) / 2;
 }
 
 void
