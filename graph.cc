@@ -47,8 +47,10 @@ std::unique_ptr<emu::repl_shallow<graph>>
 graph::from_edge_list(dist_edge_list & dist_el)
 {
     LOG("Initializing distributed vertex list...\n");
-    auto g = emu::make_repl_shallow<graph>(
+    auto the_graph = emu::make_repl_shallow<graph>(
         dist_el.num_vertices_, dist_el.num_edges_);
+    emu::repl_shallow<graph> * g = &*the_graph;
+
     // Assign vertex ID's as position in the list
     parallel::for_each(fixed,
         g->vertex_id_.begin(), g->vertex_id_.end(),
@@ -66,7 +68,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     hooks_region_begin("calculate_degrees");
     // Initialize the degree of each vertex to zero
     // Scan the edge list and do remote atomic adds into vertex_out_degree
-    dist_el.forall_edges([&] (long src, long dst) {
+    dist_el.forall_edges([g] (long src, long dst) {
         assert(src >= 0 && src < g->num_vertices());
         assert(dst >= 0 && dst < g->num_vertices());
         emu::remote_add(&g->vertex_out_degree_[src], 1);
@@ -80,7 +82,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     LOG("Counting local edges...\n");
     hooks_region_begin("count_local_edges");
     g->num_local_edges_ = 0;
-    g->for_each_vertex([&](long v) {
+    g->for_each_vertex([g](long v) {
         emu::atomic_addms(&g->num_local_edges_, g->vertex_out_degree_[v]);
     });
     hooks_region_end();
@@ -108,7 +110,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // Assign each edge block a position within the big array
     LOG("Carving edge storage...\n");
     hooks_region_begin("carve_edge_storage");
-    g->for_each_vertex([&](long v) {
+    g->for_each_vertex([g](long v) {
         // Empty vertices don't need storage
         if (g->vertex_out_degree_[v] > 0) {
             // Local vertices have one edge block on the local nodelet
@@ -127,7 +129,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // atomically increment eb->nedgesblk to find out where it goes
     LOG("Filling edge blocks...\n");
     hooks_region_begin("fill_edge_blocks");
-    dist_el.forall_edges([&] (long src, long dst) {
+    dist_el.forall_edges([g] (long src, long dst) {
         // Insert both ways for undirected graph
         g->insert_edge(src, dst);
         g->insert_edge(dst, src);
@@ -139,7 +141,7 @@ graph::from_edge_list(dist_edge_list & dist_el)
     // dump_graph();
 
     LOG("...Done\n");
-    return g;
+    return the_graph;
 }
 
 
