@@ -62,7 +62,8 @@ public:
     reset_all()
     {
         // Call reset on each copy of the queue
-        emu::repl_for_each(*this, std::mem_fn(&sliding_queue::reset));
+        emu::repl_for_each(emu::parallel_policy<8>(), *this,
+            [](sliding_queue& self) { self.reset(); });
     }
 
     // Returns a reference to the copy of T on the Nth nodelet
@@ -85,7 +86,8 @@ public:
     slide_all_windows()
     {
         // Call slide_window on each replicated copy
-        emu::repl_for_each(*this, std::mem_fn(&sliding_queue::slide_window));
+        emu::repl_for_each(emu::parallel_policy<8>(), *this,
+            [](sliding_queue& self) { self.slide_window(); });
     }
 
     void
@@ -110,6 +112,8 @@ public:
     bool
     all_empty()
     {
+        // TODO we could parallelize this. But in the common case, we will
+        // find that the first queue is non-empty and exit early.
         for (long n = 0; n < NODELETS(); ++n) {
             if (!get_nth(n).is_empty()) {
                 return false;
@@ -122,9 +126,11 @@ public:
     combined_size()
     {
         long size = 0;
-        for (long n = 0; n < NODELETS(); ++n) {
-            size += get_nth(n).size();
-        }
+        emu::repl_for_each(emu::parallel_policy<8>(), *this,
+            [&size](sliding_queue& self) {
+                emu::remote_add(&size, self.size());
+            }
+        );
         return size;
     }
 
@@ -140,7 +146,8 @@ public:
     dump_all()
     {
         // Call dump() on each copy
-        emu::repl_for_each(*this, std::mem_fn(&sliding_queue::dump));
+        emu::repl_for_each(emu::seq, *this,
+            [](sliding_queue& self) { self.dump(); });
     }
 
     template<class Function>
