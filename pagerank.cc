@@ -42,21 +42,24 @@ operator+=(emu::repl<double>& lhs, double rhs)
 int
 pagerank::run (int max_iters, double damping, double epsilon)
 {
+    // Initialize scores for all vertices
     double init_score = 1.0 / g_->num_vertices();
-    double base_score = (1.0 - damping) / g_->num_vertices();
     fill(scores_.begin(), scores_.end(), init_score);
+    // Init replicated constants
+    base_score_ = (1.0 - damping) / g_->num_vertices();
+    damping_ = damping;
     int iter;
     for (iter = 0; iter < max_iters; ++iter) {
         error_ = 0;
 
-        g_->for_each_vertex(fixed, [&](long v) {
+        g_->for_each_vertex(fixed, [this](long v) {
             // Compute outgoing contribution for each vertex
             long degree = g_->out_degree(v);
             contrib_[v] = degree == 0 ? 0 :
                 scores_[v] / degree;
         });
 
-        g_->for_each_vertex(dyn, [&](long src) {
+        g_->for_each_vertex(dyn, [this](long src) {
             // Sum incoming contribution from all my neighbors
             double incoming = 0;
             g_->for_each_out_edge(unroll, src, [&](long dst) {
@@ -64,7 +67,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             });
             // Update my score, combining old score and new
             double old_score = scores_[src];
-            scores_[src] = base_score + damping * incoming;
+            scores_[src] = base_score_ + damping_ * incoming;
             // By how much did my score error_ this iteration?
             // Uses our special operator overload
             error_ += fabs(scores_[src] - old_score);

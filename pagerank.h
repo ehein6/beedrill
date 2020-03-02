@@ -13,6 +13,9 @@ private:
     emu::striped_array<double> contrib_;
     // Accumulates error from each step
     emu::repl<double> error_;
+    // Constants related to applying the damping factor
+    emu::repl<double> base_score_;
+    emu::repl<double> damping_;
 public:
     explicit pagerank(graph & g);
     pagerank(const pagerank& other, emu::shallow_copy tag);
