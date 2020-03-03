@@ -101,9 +101,10 @@ triangle_count::run()
     });
     // Reduce number of triangles and number of two-paths and return
     stats s;
-    s.num_triangles = cilk_spawn repl_reduce(num_triangles_, std::plus<>());
-    s.num_twopaths =             repl_reduce(num_twopaths_, std::plus<>());
-    cilk_sync;
+    repl_for_each(parallel_policy<8>(), *this, [&s](triangle_count& self) {
+        remote_add(&s.num_triangles, self.num_triangles_);
+        remote_add(&s.num_twopaths, self.num_twopaths_);
+    });
     return s;
 }
 
