@@ -292,14 +292,14 @@ int main(int argc, char ** argv)
 
         LOG("\nMean performance over %li trials on %li nodelets:\n",
             args.num_trials, NODELETS());
-        LOG("    BFS: %3.2f ± %3.2f GTEPS, min/max %3.2f/%3.2f GTEPS\n",
+        LOG("    BFS: %3.2f +/- %3.2f GTEPS, min/max %3.2f/%3.2f GTEPS\n",
             1e-9 * bfs_stats.hmean, 1e-9 * bfs_stats.stddev,
             1e-9 * bfs_stats.min,  1e-9 * bfs_stats.max);
-        LOG("    Connected Components: %3.2f ± %3.2f ms, min/max %3.2f/%3.2f ms\n",
+        LOG("    Connected Components: %3.2f +/- %3.2f ms, min/max %3.2f/%3.2f ms\n",
             cc_stats.mean, cc_stats.stddev, cc_stats.min, cc_stats.max);
-        LOG("    PageRank: %3.2f ± %3.2f ms, min/max %3.2f/%3.2f ms\n",
+        LOG("    PageRank: %3.2f +/- %3.2f ms, min/max %3.2f/%3.2f ms\n",
             pr_stats.mean, pr_stats.stddev, pr_stats.min, pr_stats.max);
-        LOG("    Triangle Counting: %3.2f ± %3.2f Mega-Tris/s, min/max %3.2f/%3.2f Mega-Tris/s\n",
+        LOG("    Triangle Counting: %3.2f +/- %3.2f Mega-Tris/s, min/max %3.2f/%3.2f Mega-Tris/s\n",
             1e-6 * tc_stats.hmean, 1e-6 * tc_stats.stddev,
             1e-6 * tc_stats.min,  1e-6 * tc_stats.max);
     }
