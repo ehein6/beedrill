@@ -91,10 +91,12 @@ pagerank::check(double damping, double target_error)
   std::vector<double> incoming_sums(g_->num_vertices(), 0);
   double error = 0;
   g_->for_each_vertex(seq, [&](long u){
-    double outgoing_contrib = scores_[u] / g_->out_degree(u);
-    g_->for_each_out_edge(seq, u, [&](long v) {
-      incoming_sums[v] += outgoing_contrib;
-    });
+      long degree = g_->out_degree(u);
+      double outgoing_contrib = degree == 0 ? 0 :
+          scores_[u] / degree;
+      g_->for_each_out_edge(seq, u, [&](long v) {
+          incoming_sums[v] += outgoing_contrib;
+      });
   });
 
   g_->for_each_vertex(seq, [&](long n){
