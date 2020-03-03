@@ -211,7 +211,7 @@ int main(int argc, char ** argv)
         long source = pick_random_vertex(*g, rng);
         LOG("Doing breadth-first search from vertex %li \n", source);
         hooks_region_begin("bfs");
-        bfs->run_with_remote_writes_hybrid(source, /*alpha*/15, /*beta*/18);
+        bfs->run_beamer(source, /*alpha*/15, /*beta*/18);
         double bfs_time_ms = hooks_region_end();
         long num_edges_traversed = bfs->count_num_traversed_edges();
         bfs_teps[trial] = num_edges_traversed / (1e-3 * bfs_time_ms);
