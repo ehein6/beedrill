@@ -18,8 +18,8 @@ public:
     triangle_count(const triangle_count& other, emu::shallow_copy);
 
     struct stats {
-        long num_triangles;
-        long num_twopaths;
+        long num_triangles = 0;
+        long num_twopaths = 0;
     };
 
     stats run();
