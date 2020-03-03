@@ -26,6 +26,7 @@ void
 triangle_count::clear()
 {
     num_triangles_ = 0;
+    num_twopaths_ = 0;
 }
 
 /**
