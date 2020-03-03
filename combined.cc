@@ -1,4 +1,5 @@
 #include <cstring>
+#include <cmath>
 #include <getopt.h>
 #include <algorithm>
 #include <numeric>

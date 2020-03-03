@@ -1,6 +1,7 @@
 #pragma once
 
 #include <emu_c_utils/emu_c_utils.h>
+#include "out_of_memory.h"
 
 namespace emu {
 
@@ -12,7 +13,7 @@ private:
 public:
     explicit repl_array(long size) : size_(size) {
         data_ = reinterpret_cast<T *>(mw_mallocrepl(sizeof(T) * size));
-        assert(data_);
+        if (!data_) { EMU_OUT_OF_MEMORY(sizeof(T) * size * NODELETS()); }
     }
 
     repl_array(const repl_array &other, emu::shallow_copy)

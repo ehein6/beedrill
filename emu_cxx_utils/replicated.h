@@ -9,6 +9,7 @@
 #include <emu_c_utils/emu_c_utils.h>
 #include "pointer_manipulation.h"
 #include "execution_policy.h"
+#include "out_of_memory.h"
 
 /*
  * This header provides support for storing C++ objects in replicated memory.
@@ -101,7 +102,9 @@ public:
     static void *
     operator new(std::size_t sz)
     {
-        return mw_mallocrepl(sz);
+        void * ptr = mw_mallocrepl(sz);
+        if (!ptr) { EMU_OUT_OF_MEMORY(sz * NODELETS()); }
+        return ptr;
     }
 
     // Overrides default delete to safely free replicated storage

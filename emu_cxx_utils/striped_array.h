@@ -1,20 +1,9 @@
 #pragma once
 
-extern "C" {
-#ifdef __le64__
-#include <memoryweb.h>
-#else
-#include "memoryweb_x86.h"
-#endif
-}
-#include <cinttypes>
-#include <algorithm>
-#include <cmath>
-#include <cstdlib>
-#include <cstdio>
-#include <cilk/cilk.h>
+#include <emu_c_utils/emu_c_utils.h>
 
 #include "replicated.h"
+#include "out_of_memory.h"
 
 namespace emu {
 
@@ -43,6 +32,7 @@ public:
     explicit striped_array(long n) : n(n)
     {
         ptr = reinterpret_cast<T*>(mw_malloc1dlong(static_cast<size_t>(n)));
+        if (!ptr) { EMU_OUT_OF_MEMORY(n * sizeof(long)); }
     }
 
     // Initializer-list constructor

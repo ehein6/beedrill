@@ -1,4 +1,5 @@
 #include "pagerank.h"
+#include <cmath>
 #include <vector>
 #include <emu_cxx_utils/execution_policy.h>
 #include <emu_cxx_utils/for_each.h>
