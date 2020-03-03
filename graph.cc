@@ -1,9 +1,6 @@
-#include <cilk/cilk.h>
-#include <stdbool.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <string>
+#include <vector>
 #include <emu_c_utils/emu_c_utils.h>
 #include <emu_cxx_utils/intrinsics.h>
 #include <emu_cxx_utils/fill.h>
@@ -162,36 +159,61 @@ graph::dump()
 void
 graph::print_distribution()
 {
+    // Format for 80-column display width
+    // We need one column per nlet/node/chassis, plus 8 for the y-ticks
+    const long char_limit = 80 - 8;
+    std::string col_label;
+    long num_cols, nlets_per_col;
+    long num_nlets = NODELETS();
+    if (num_nlets == 1) {
+        // Everything on one nodelet, not an interesting plot
+        return;
+    } else if (char_limit > num_nlets) {
+        col_label = "nodelet";
+        nlets_per_col = 1;
+    } else if (char_limit > num_nlets / 8){
+        col_label = "node";
+        nlets_per_col = 8;
+    } else if (char_limit > num_nlets / 64) {
+        col_label = "chassis";
+        nlets_per_col = 64;
+    } else {
+        col_label = "rack";
+        nlets_per_col = 512;
+    }
+    num_cols = num_nlets / nlets_per_col;
+
     // Compute percentage of edges on each nodelet
-    double percent_edges[NODELETS()];
+    std::vector<double> percent_edges(num_cols, 0);
     for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        percent_edges[nlet] =
+        long col = nlet / nlets_per_col;
+        percent_edges[col] +=
             (double)num_local_edges_.get_nth(nlet) / (num_edges_ * 2);
     }
 
     // Compute the max (to scale the y-axis)
     double max_percent = 0;
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        if (percent_edges[nlet] > max_percent) {
-            max_percent = percent_edges[nlet];
+    for (long col = 0; col < num_cols; ++col) {
+        if (percent_edges[col] > max_percent) {
+            max_percent = percent_edges[col];
         }
     }
 
     // Compute bar heights
-    long histogram[NODELETS()];
+    std::vector<long> histogram(num_cols, 0);
     const long bar_height = 10;
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        histogram[nlet] = bar_height * (percent_edges[nlet] / max_percent);
+    for (long col = 0; col < num_cols; ++col) {
+        histogram[col] = bar_height * (percent_edges[col] / max_percent);
     }
 
     // Draw a histogram representing edge distribution
-    printf("Edge distribution per nodelet: \n");
+    printf("Edge distribution per %s: \n", col_label.c_str());
     for (long row = bar_height; row > 0; --row) {
         // Y-axis label
         printf("%5.1f%% ", 100 * max_percent * row / bar_height);
         // Draw bar segments in this row
-        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-            if (histogram[nlet] >= row) {
+        for (long col = 0; col < num_cols; ++col) {
+            if (histogram[col] >= row) {
                 printf("█");
             } else {
                 printf(" ");
@@ -199,26 +221,17 @@ graph::print_distribution()
         }
         printf("\n");
     }
-    if (NODELETS() >= 100) {
-        // Bottom rows: nodelet number, stacked vertically
+    if (num_cols >= 10) {
         printf("       "); // Spacer
-        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-            if (nlet >= 100) { printf("%li", nlet / 100); }
-            else             { printf(" "); }
-        }
-        printf("\n");
-    }
-    if (NODELETS() >= 10) {
-        printf("       "); // Spacer
-        for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-            if (nlet >= 10) { printf("%li", (nlet / 10) % 10); }
+        for (long col = 0; col < num_cols; ++col) {
+            if (col >= 10) { printf("%li", (col / 10) % 10); }
             else           { printf(" "); }
         }
         printf("\n");
     }
     printf("       "); // Spacer
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        printf("%li", nlet % 10);
+    for (long col = 0; col < num_cols; ++col) {
+        printf("%li", col % 10);
     }
     printf("\n");
     fflush(stdout);
