@@ -131,14 +131,17 @@ int main(int argc, char ** argv)
             success = false;
         };
     }
-    if (args.dump_graph) {
-        LOG("Dumping graph...\n");
-        g->dump();
-    }
 
     // Initialize the algorithm
     LOG("Initializing ktruss data structures...\n");
     auto kt = emu::make_repl_shallow<ktruss>(*g);
+    kt->clear();
+
+    if (args.dump_graph) {
+        LOG("Dumping graph...\n");
+        // Note: using ktruss's dump_graph, which treats the graph as directed
+        kt->dump_graph();
+    }
 
     // Run multiple trials of the algorithm
     for (long trial = 0; trial < args.num_trials; ++trial) {
