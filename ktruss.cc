@@ -251,7 +251,10 @@ ktruss::remove_edges(long k)
         );
         if (remove_begin != end) {
             // Set K for the edges we are about to remove
-            for_each(remove_begin, end, [k](ktruss_edge_slot &e) {
+            for_each(remove_begin, end, [=](ktruss_edge_slot &e) {
+                assert(e.TC == 0);
+                assert(e.qrC == 0);
+                DEBUG("Removed %li->%li, KTE=%li\n", v, e.dst, k-1);
                 e.KTE = k - 1;
             });
             // Resize the edge list to drop the edges off the end
@@ -341,8 +344,8 @@ ktruss::check()
     intersection.reserve(g_->num_vertices());
     // For all edges u->v where u > v
     for (long u = 0; u < g_->num_vertices(); ++u) {
-        for (auto p_v = g_->out_edges_begin(u); p_v < g_->out_edges_end(u); ++p_v) {
-            long v = *p_v;
+        for (auto uv = g_->out_edges_begin(u); uv < g_->out_edges_end(u); ++uv){
+            long v = uv->dst;
             if (v > u) { break; }
             // Find all neighbors w that u and v have in common
             std::set_intersection(
@@ -352,7 +355,7 @@ ktruss::check()
                 g_->out_edges_end(v),
                 std::back_inserter(intersection));
             // Get the value of k that the algorithm assigned to this edge
-            long expected_k = g_->find_out_edge(u, v)->KTE;
+            long expected_k = uv->KTE;
             // Count how many of these triangles involve other edges with
             // the same k
             long actual_num_tris = std::count_if(
@@ -366,8 +369,8 @@ ktruss::check()
             );
 
             if (actual_num_tris < expected_k - 2) {
-                LOG("Edge %li -> %li has k of %li, but only %li tris\n",
-                    u, v, expected_k, actual_num_tris);
+                LOG("Edge %li -> %li has k of %li, but only %li tris in the %li-truss\n",
+                    u, v, expected_k, actual_num_tris, expected_k);
                 success = false;
             }
             // Reset for next edge
