@@ -164,6 +164,7 @@ ktruss::unroll_wedges(long k)
     {
         long q = pq.dst;
         auto qr = g_->out_edges_begin(q);
+        auto qr_end = active_edges_end_[q];
 #ifdef VERBOSE_LOGGING
         if (pq.TC  < k - 2) { LOG("(p->q) remove %li->%li\n", p, q); }
 #endif
@@ -176,6 +177,7 @@ ktruss::unroll_wedges(long k)
 #endif
                 // Search for q->r edge to complete the triangle
                 while (*qr < *pr) { ++qr; }
+                if (qr >= qr_end) { break; }
                 if (*qr == *pr) {
                     // Unroll triangle
                     DEBUG("Unrolling %li->%li->%li\n", p, q, pr->dst);
