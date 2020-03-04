@@ -288,11 +288,10 @@ public:
         );
     }
 
-    // HACK assumes sorted in ascending order
     edge_iterator
     find_out_edge(long src, long dst)
     {
-        return std::lower_bound(out_edges_begin(src), out_edges_end(src), dst);
+        return std::find(out_edges_begin(src), out_edges_end(src), dst);
     }
 
     template<class Compare>
