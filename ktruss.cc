@@ -319,7 +319,7 @@ ktruss::run()
             num_edges -= num_removed;
             DEBUG("Removed %li edges, %li edges remaining\n",
                 num_removed, num_edges);
-        } while (num_removed > 0);
+        } while (num_removed > 0 && num_edges > 0);
         ++k;
     } while (num_edges > 0);
     // The last iteration removed all edges and incremented k
@@ -333,8 +333,46 @@ ktruss::run()
 bool
 ktruss::check()
 {
-    // FIXME
-    return false;
+    bool success = true;
+    // Reserve memory for holding intersection of two vertices
+    std::vector<long> intersection;
+    intersection.reserve(g_->num_vertices());
+    // For all edges u->v where u > v
+    for (long u = 0; u < g_->num_vertices(); ++u) {
+        for (auto p_v = g_->out_edges_begin(u); p_v < g_->out_edges_end(u); ++p_v) {
+            long v = *p_v;
+            if (v > u) { break; }
+            // Find all neighbors w that u and v have in common
+            std::set_intersection(
+                g_->out_edges_begin(u),
+                g_->out_edges_end(u),
+                g_->out_edges_begin(v),
+                g_->out_edges_end(v),
+                std::back_inserter(intersection));
+            // Get the value of k that the algorithm assigned to this edge
+            long expected_k = g_->find_out_edge(u, v)->KTE;
+            // Count how many of these triangles involve other edges with
+            // the same k
+            long actual_num_tris = std::count_if(
+                intersection.begin(), intersection.end(), [=](long w) {
+                    // Look up the edge in the right direction
+                    // The other one doesn't have KTE set
+                    auto uw = g_->find_out_edge(std::max(u, w), std::min(u, w));
+                    auto vw = g_->find_out_edge(std::max(v, w), std::min(v, w));
+                    return uw->KTE >= expected_k && vw->KTE >= expected_k;
+                }
+            );
+
+            if (actual_num_tris < expected_k - 2) {
+                LOG("Edge %li -> %li has k of %li, but only %li tris\n",
+                    u, v, expected_k, actual_num_tris);
+                success = false;
+            }
+            // Reset for next edge
+            intersection.clear();
+        }
+    }
+    return success;
 }
 
 void
