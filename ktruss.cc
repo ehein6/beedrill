@@ -143,6 +143,29 @@ ktruss::count_initial_triangles()
 }
 
 /**
+ * Decrement triangle counts for all edges involved in a triangle.
+ * We refer to the triangle as p->q->r, where p > q > r.
+ * @param qr Reference to the q->r edge
+ * @param pq Reference to the p->q edge
+ * @param pr Reference to the p->r edge
+ */
+static void
+unroll_triangle(
+    ktruss_edge_slot& qr,
+    ktruss_edge_slot& pq,
+    ktruss_edge_slot& pr)
+{
+    assert(qr.TC > 0);
+    assert(pq.TC > 0);
+    assert(pr.TC > 0);
+    assert(qr.qrC > 0);
+    emu::remote_add(&qr.TC, -1);
+    emu::remote_add(&pq.TC, -1);
+    emu::remote_add(&pr.TC, -1);
+    emu::remote_add(&qr.qrC, -1);
+}
+
+/**
  * Recall p>q>r
  *
  * If we find an edge p->q that will be removed,
@@ -181,10 +204,7 @@ ktruss::unroll_wedges(long k)
                 if (*qr == *pr) {
                     // Unroll triangle
                     DEBUG("Unrolling %li->%li->%li\n", p, q, pr->dst);
-                    emu::remote_add(&qr->TC, -1);
-                    emu::remote_add(&pq.TC, -1);
-                    emu::remote_add(&pr->TC, -1);
-                    emu::remote_add(&qr->qrC, -1);
+                    unroll_triangle(*qr, pq, *pr);
                     emu::remote_add(&find_reverse_edge(q, p)->pRefC, -1);
                 }
             }
@@ -224,13 +244,14 @@ ktruss::unroll_supported_triangles(long k)
                     if (pr && pq) {
                         // Unroll supported triangle
                         DEBUG("Unrolling %li->%li->%li\n", p, q, r);
-                        emu::remote_add(&qr.TC, -1);
-                        emu::remote_add(&pq->TC, -1);
-                        emu::remote_add(&pr->TC, -1);
-                        emu::remote_add(&qr.qrC, -1);
-                        // TODO should we decrement the reference count?
+                        unroll_triangle(qr, *pq, *pr);
+                        // TODO necessary to decrement pRefC?
+                        emu::remote_add(&qp->pRefC, -1);
                     }
                 }
+            }
+            if (qr.TC != 0) {
+                DEBUG("%li->%li TC=%li qrC=%li\n", q, qr.dst, qr.TC, qr.qrC);
             }
         }
     });
