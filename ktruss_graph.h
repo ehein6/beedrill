@@ -7,17 +7,16 @@ struct ktruss_edge_slot
     long dst;
     // Number of triangles this edge is involved in
     long TC;
-    union {
-        // Number of triangles for which this edge is a "qr edge"
-        long qrC;
-        // Reference count of all 'p' vertices for closing triangles,
-        // for each 'q' vertex
-        //     Note: This field is only set on the reverse edges, so it is safe
-        //     to put in a union
-        long pRefC;
-    };
+    // Number of triangles for which this edge is a "qr edge"
+    long qrC;
+    // Reference count of all 'p' vertices for closing triangles,
+    // for each 'q' vertex
+    long pRefC;
     // Max K-truss number for this edge
     long KTE;
+
+    // TODO These fields are not active at the same time, could save a lot of
+    // space by putting them all in a union.
 
     // Most graph algos were written when an edge was just a long int, this
     // operator allows most of that code to work
