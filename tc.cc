@@ -85,7 +85,7 @@ triangle_count::run()
     });
 
     // Process all the edges in the work list in parallel
-    worklist_.process_all(dyn, [this](long u, long v) {
+    worklist_.process_all_edges(dyn, [this](long u, long v) {
         // At this point we have one side of the triangle, from u to v
         // For each edge v->w, see if we also have u->w to complete the
         // triangle. Once again, we limit ourselves to the neighbors of v

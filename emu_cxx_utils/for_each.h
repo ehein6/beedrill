@@ -129,7 +129,7 @@ private:
 
     void worker_thread()
     {
-        long grain = Policy::grain();
+        long grain = Policy::grain;
         if (nlet_stride) { grain *= NODELETS(); }
         // Atomically grab items off the list
         for (T* next = atomic_addms(next_ptr_, grain);

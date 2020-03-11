@@ -103,14 +103,13 @@ private:
             // Try to atomically grab some edges to process for this vertex
             long *e1, *e2;
             for (e1 = emu::atomic_addms(&edges_begin_[src], grain);
-                 e1 <= edges_end;
+                 e1 < edges_end;
                  e1 = emu::atomic_addms(&edges_begin_[src], grain))
             {
+                // Compute endpoint of this granule
                 e2 = e1 + grain; if (e2 > edges_end) { e2 = edges_end; }
-                // Visit each edge
-                for (long * e = e1; e < e2; ++e) {
-                    visitor(src, *e);
-                }
+                // Call visitor on the range of edges
+                visitor(src, e1, e2);
             }
             // This vertex is done, move to the next one
         }
@@ -137,14 +136,16 @@ public:
     void process(emu::parallel_policy<Grain> policy, Visitor visitor)
     {
         // Walk through the worklist
+        constexpr long grain = Grain;
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Spawn a thread for each granule
-            cilk_spawn emu::parallel::for_each(policy,
-                edges_begin_[src], edges_end_[src],
-                [src, visitor](long dst){
-                    visitor(src, dst);
-                }
-            );
+            auto begin = edges_begin_[src];
+            auto end = edges_end_[src];
+            for (auto e1 = begin; e1 < end; e1 += grain) {
+                // Compute endpoint of this granule
+                auto e2 = e1 + grain; if (e2 > end) { e2 = end; }
+                cilk_spawn visitor(src, e1, e2);
+            }
             // This vertex is done, move to the next one
         }
     }
@@ -160,9 +161,7 @@ public:
         // Walk through the worklist
         for (long src = head_; src >= 0; src = next_vertex_[src]) {
             // Visit each edge for this vertex
-            for (long * e = edges_begin_[src]; e != edges_end_[src]; ++e) {
-                visitor(src, *e);
-            }
+            visitor(src, edges_begin_[src], edges_end_[src]);
             // This vertex is done, move to the next one
         }
     }
@@ -176,12 +175,24 @@ public:
      *  @c void (long src, long dst)
      */
     template<class Policy, class Visitor>
-    void process_all(Policy policy, Visitor visitor)
+    void process_all_ranges(Policy policy, Visitor visitor)
     {
         assert(emu::pmanip::is_repl(this));
         emu::repl_for_each(emu::parallel_policy<1>(), *this,
             [policy, visitor](worklist & w) {
                 w.process(policy, visitor);
+            }
+        );
+    }
+
+    template<class Policy, class Visitor>
+    void process_all_edges(Policy policy, Visitor visitor)
+    {
+        process_all_ranges(policy,
+            [visitor](long src, long * begin, long * end) {
+                for (auto e = begin; e != end; ++e) {
+                    visitor(src, *e);
+                }
             }
         );
     }
