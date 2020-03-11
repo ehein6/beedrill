@@ -45,13 +45,16 @@ public:
             e3 = *begin++;
             e2 = *begin++;
             e1 = *begin++;
+            // HACK - prevent forward propagation in Emu compiler from
+            // reordering these instructions
+            (void)NODE_ID();
             // Visit each element without returning home
-            // Once an element has been processed, we can resize to
-            // avoid carrying it along with us.
             worker_(e1);
             worker_(e2);
             worker_(e3);
             worker_(e4);
+            // Once an element has been processed, we can resize to
+            // avoid carrying it along with us.
             RESIZE();
         }
     }
