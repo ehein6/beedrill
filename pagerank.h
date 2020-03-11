@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "graph.h"
+#include "worklist.h"
 
 class pagerank
 {
@@ -11,11 +12,15 @@ private:
     emu::striped_array<double> scores_;
     // Outgoing contribution from each vertex
     emu::striped_array<double> contrib_;
+    // Incoming contribution from other vertices
+    emu::striped_array<double> incoming_;
     // Accumulates error from each step
     emu::repl<double> error_;
     // Constants related to applying the damping factor
     emu::repl<double> base_score_;
     emu::repl<double> damping_;
+
+    worklist worklist_;
 public:
     explicit pagerank(graph & g);
     pagerank(const pagerank& other, emu::shallow_copy tag);
