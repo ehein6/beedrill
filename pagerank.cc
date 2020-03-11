@@ -116,14 +116,14 @@ pagerank::run (int max_iters, double damping, double epsilon)
             }
         });
 
-        worklist_.process_all_ranges(dynamic_policy<128>(),
-            [this](long src, long * e1, long * e2) {
+        worklist_.process_all_ranges(dynamic_policy<256>(),
+            [contrib=contrib_.data(),incoming=incoming_.data()]
+            (long src, long * e1, long * e2) {
                 // Sum incoming contribution from all my neighbors
-                double& incoming = incoming_[src];
-                my_reducer accum(incoming);
+                my_reducer accum(incoming[src]);
                 for_each(unroll, e1, e2,
                     // Note: capture accum by value, use mutable lambda
-                    [contrib=contrib_.data(), accum] (long dst) mutable {
+                    [accum, contrib] (long dst) mutable {
                         accum += contrib[dst];
                     }
                 );
