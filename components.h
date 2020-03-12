@@ -14,6 +14,8 @@ public:
     emu::striped_array<long> component_size_;
     // Number of components
     emu::repl<long> num_components_;
+    // Was there any change in components in the current iteration?
+    emu::repl<long> changed_;
 
     explicit components(graph& g);
     components(const components& other, emu::shallow_copy);

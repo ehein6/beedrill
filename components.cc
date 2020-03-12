@@ -16,6 +16,7 @@ components::components(graph & g)
 , component_(g.num_vertices())
 , component_size_(g.num_vertices())
 , num_components_(g.num_vertices())
+, changed_(false)
 {
     clear();
 }
@@ -26,6 +27,7 @@ components::components(const components& other, emu::shallow_copy shallow)
 , component_(other.component_, shallow)
 , component_size_(other.component_size_, shallow)
 , num_components_(other.num_components_)
+, changed_(other.changed_)
 {}
 
 void
@@ -49,10 +51,10 @@ components::run()
 
     long num_iters;
     for (num_iters = 1; ; ++num_iters) {
-        long changed = 0;
+        changed_ = false;
         // For all edges that connect vertices in different components...
         worklist_.process_all_edges(dynamic_policy<64>(),
-            [this, &changed](long src, long dst) {
+            [this](long src, long dst) {
                 long comp_src = component_[src];
                 long comp_dst = component_[dst];
                 if (comp_src == comp_dst) { return; }
@@ -62,14 +64,14 @@ components::run()
                 long high_comp = std::max(comp_src, comp_dst);
                 long low_comp = std::min(comp_src, comp_dst);
                 if (high_comp == component_[high_comp]) {
-                    changed = 1;
+                    changed_ = true;
                     component_[high_comp] = low_comp;
                 }
             }
         );
 
         // No changes? We're done!
-        if (!changed) break;
+        if (!repl_reduce(changed_, std::logical_or<>())) break;
 
         worklist_.clear_all();
         g_->for_each_vertex(fixed, [this](long v) {
