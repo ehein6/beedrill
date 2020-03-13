@@ -55,17 +55,11 @@ components::run()
         // For all edges that connect vertices in different components...
         worklist_.process_all_edges(dynamic_policy<64>(),
             [this](long src, long dst) {
-                long comp_src = component_[src];
-                long comp_dst = component_[dst];
-                if (comp_src == comp_dst) { return; }
-
-                // Assign the lower component ID to both
-                // This algorithm is stable for undirected graphs
-                long high_comp = std::max(comp_src, comp_dst);
-                long low_comp = std::min(comp_src, comp_dst);
-                if (high_comp == component_[high_comp]) {
+                long &comp_src = component_[src];
+                long &comp_dst = component_[dst];
+                if (comp_dst < comp_src) {
+                    comp_src = comp_dst;
                     changed_ = true;
-                    component_[high_comp] = low_comp;
                 }
             }
         );
