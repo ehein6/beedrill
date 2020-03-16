@@ -103,17 +103,15 @@ pagerank::run (int max_iters, double damping, double epsilon)
         g_->for_each_vertex(fixed, [this](long v) {
             // Initialize incoming contribution to zero
             incoming_[v] = 0;
-            // Look up the edge list for this vertex
+            // Compute outgoing contribution as score over degree
+            auto degree = g_->out_degree(v);
+            if (degree > 0) { contrib_[v] = scores_[v] / degree; }
+        });
+        // Append all edges to the work list
+        g_->for_each_vertex(fixed, [this](long v) {
             auto begin = g_->out_edges_begin(v);
             auto end = g_->out_edges_end(v);
-            auto degree = end - begin;
-            if (degree == 0) {
-                contrib_[v] = 0;
-            } else {
-                // Compute outgoing contribution and add edges to work list
-                contrib_[v] = scores_[v] / degree;
-                worklist_.append(v, begin, end);
-            }
+            worklist_.append(v, begin, end);
         });
 
         worklist_.process_all_ranges(dynamic_policy<256>(),
@@ -135,8 +133,11 @@ pagerank::run (int max_iters, double damping, double epsilon)
             double old_score = scores_[src];
             scores_[src] = base_score_ + damping_ * incoming_[src];
             // By how much did my score change this iteration?
+            auto diff = scores_[src] - old_score;
+            // Avoid calling fabs, we know there's no NaN here
+            if (diff < 0) { diff = -diff; }
             // Uses our special operator overload
-            error_ += fabs(scores_[src] - old_score);
+            error_ += diff;
         });
         double err = repl_reduce(error_, std::plus<>());
         if (err < epsilon)
