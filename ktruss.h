@@ -31,13 +31,7 @@ private:
     // Work list of edges to process
     worklist<ktruss_graph::edge_type> worklist_;
 
-    // Helper functions
-    ktruss_graph::edge_type * find_edge(long src, long dst);
-    ktruss_graph::edge_type * find_reverse_edge(long q, long p);
-    void build_worklist();
-    void count_initial_triangles();
-    void unroll_wedges(long k);
-    void unroll_supported_triangles(long k);
+    void count_triangles();
     long remove_edges(long k);
     stats compute_truss_sizes(long max_k);
 

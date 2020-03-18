@@ -5,7 +5,7 @@
 #include <cilk/cilk.h>
 #include <emu_c_utils/emu_c_utils.h>
 
-#define VERBOSE_LOGGING
+//#define VERBOSE_LOGGING
 
 #ifdef VERBOSE_LOGGING
 #define DEBUG(...) LOG(__VA_ARGS__)
@@ -34,74 +34,25 @@ void
 ktruss::clear()
 {
     g_->for_each_vertex(dyn, [this](long src) {
+        // Look up edge list for this vertex
+        auto edges_begin = g_->out_edges_begin(src);
+        auto edges_end = g_->out_edges_end(src);
+        // Sort edge list in ascending order
+        std::sort(edges_begin, edges_end, std::less<>());
         // Shrink edge lists to only consider edges that connect to vertices
         // with lower vertex ID's. Essentially making this a directed graph
-        active_edges_end_[src] = std::lower_bound(
-            g_->out_edges_begin(src), g_->out_edges_end(src), src);
+        active_edges_end_[src] = std::lower_bound(edges_begin, edges_end, src);
         // Init vertex K values to zero
         vertex_max_k_[src] = 0;
         // Init all edge property values to zero
         g_->for_each_out_edge(src, [](ktruss_edge_slot &dst) {
             dst.TC = 0;
-            dst.qrC = 0;
-            dst.KTE = 0;
         });
     });
 }
 
-/**
- * Searches for an edge in the active graph using binary search
- * @param src Source vertex (assumes src > dst)
- * @param dst Destination vertex (assumes src > dst)
- * @return Pointer to edge, or else null if the edge is not present
- */
-ktruss_graph::edge_type *
-ktruss::find_edge(long src, long dst)
-{
-    assert(src > dst);
-    auto begin = g_->out_edges_begin(src);
-    auto end = active_edges_end_[src];
-    auto edge = std::lower_bound(begin, end, dst);
-    if (edge == end || *edge != dst) {
-        return nullptr;
-    } else {
-        return edge;
-    }
-}
-
-/**
- * Gets a pointer to the in-edge from q to p
- *
- * For most of this algorithm, we treat the graph as directed, traversing
- * edges only in the direction from higher to lower vertex ID.
- *
- * But we still built an undirected graph, which means that the reverse
- * edges are still present. We use these reverse edges to store the pRefC
- * counter.
- *
- * This function should never fail to find the edge. It is used
- * in situations where we already have the edge p->q, but we want to
- * updating a counter in q->p for efficient reverse iteration. Also note that
- * reverse edges are never deleted, so the user should verify that p->q has
- * not been removed before relying on this.
- * @param q
- * @param p
- * @return Pointer to edge p in q's edge list
- */
-ktruss_graph::edge_type *
-ktruss::find_reverse_edge(long q, long p)
-{
-    assert(p > q);
-    auto begin = g_->out_edges_begin(q);
-    auto end = g_->out_edges_end(q);
-    auto edge = std::lower_bound(begin, end, p);
-    assert(edge != end);
-    assert(*edge == p);
-    return edge;
-}
-
 void
-ktruss::build_worklist()
+ktruss::count_triangles()
 {
     worklist_.clear_all();
     g_->for_each_vertex(fixed, [this](long p) {
@@ -111,13 +62,12 @@ ktruss::build_worklist()
         if (q_begin != q_end) {
             worklist_.append(p, q_begin, q_end);
         }
+        // Init all triangle counts to zero
+        g_->for_each_out_edge(p, [](ktruss_edge_slot &dst) {
+            dst.TC = 0;
+        });
     });
-}
 
-void
-ktruss::count_initial_triangles()
-{
-    build_worklist();
     // Process all p->q edges with a thread pool
     worklist_.process_all_edges(dyn, [this](long p, ktruss_edge_slot& pq) {
         long q = pq.dst;
@@ -135,123 +85,6 @@ ktruss::count_initial_triangles()
                 emu::remote_add(&qr->TC, 1);
                 emu::remote_add(&pq.TC, 1);
                 emu::remote_add(&pr->TC, 1);
-                emu::remote_add(&qr->qrC, 1);
-                emu::remote_add(&find_reverse_edge(q, p)->pRefC, 1);
-            }
-        }
-    });
-}
-
-/**
- * Decrement triangle counts for all edges involved in a triangle.
- * We refer to the triangle as p->q->r, where p > q > r.
- * @param qr Reference to the q->r edge
- * @param pq Reference to the p->q edge
- * @param pr Reference to the p->r edge
- */
-static void
-unroll_triangle(
-    ktruss_edge_slot& qr,
-    ktruss_edge_slot& pq,
-    ktruss_edge_slot& pr)
-{
-    assert(qr.TC > 0);
-    assert(pq.TC > 0);
-    assert(pr.TC > 0);
-    assert(qr.qrC > 0);
-    emu::remote_add(&qr.TC, -1);
-    emu::remote_add(&pq.TC, -1);
-    emu::remote_add(&pr.TC, -1);
-    emu::remote_add(&qr.qrC, -1);
-}
-
-/**
- * Recall p>q>r
- *
- * If we find an edge p->q that will be removed,
- * Let r be the first neighbor of p that is less than q
- * Search and unroll all triangles
- *
- * If there is a p->q that will NOT be removed, there may
- * still be a p->r that will remove the triangle p->q->r
- *
- * @param k
- */
-
-void
-ktruss::unroll_wedges(long k)
-{
-    build_worklist();
-    // Process all p->q edges with a thread pool
-    worklist_.process_all_edges(dyn, [this, k](long p, ktruss_edge_slot& pq)
-    {
-        long q = pq.dst;
-        auto qr = g_->out_edges_begin(q);
-        auto qr_end = active_edges_end_[q];
-#ifdef VERBOSE_LOGGING
-        if (pq.TC  < k - 2) { LOG("(p->q) remove %li->%li\n", p, q); }
-#endif
-        // Iterate over all wedges p->(q, r) where q > r
-        for (auto pr = g_->out_edges_begin(p); *pr < pq.dst; ++pr) {
-            // Will p->q or p->r be removed?
-            if (pq.TC < k - 2 || pr->TC < k - 2) {
-#ifdef VERBOSE_LOGGING
-                if (pq.TC >= k - 2 && pr->TC < k - 2) { LOG("(p->r) remove %li->%li\n", p, pr->dst); }
-#endif
-                // Search for q->r edge to complete the triangle
-                while (*qr < *pr) { ++qr; }
-                if (qr >= qr_end) { break; }
-                if (*qr == *pr) {
-                    // Unroll triangle
-                    DEBUG("Unrolling %li->%li->%li\n", p, q, pr->dst);
-                    unroll_triangle(*qr, pq, *pr);
-                    emu::remote_add(&find_reverse_edge(q, p)->pRefC, -1);
-                }
-            }
-        }
-    });
-}
-
-void
-ktruss::unroll_supported_triangles(long k)
-{
-    build_worklist();
-    // Process all q->r edges with a thread pool
-    worklist_.process_all_edges(dyn, [this, k](long q, ktruss_edge_slot& qr)
-    {
-        long r = qr.dst;
-        assert(qr.TC >= 0);
-        assert(qr.qrC >= 0);
-        // Will this edge be removed?
-        // Does it support any triangles as a q->r edge?
-        if (qr.TC < k - 2 && qr.qrC > 0) {
-            DEBUG("(q->r) remove %li->%li\n", q, qr.dst);
-            // Iterate over q->p edges
-            // This is the range of q's neighbors that are GREATER than q
-            // i.e. we are looking at edges in the other direction
-            auto qp_end = g_->out_edges_end(q);
-            auto qp_begin = std::upper_bound(g_->out_edges_begin(q), qp_end, q);
-            for (auto qp = qp_begin; qp != qp_end; ++qp){
-                if (qp->pRefC > 0) {
-                    long p = qp->dst;
-                    // Find the edge p->r to complete the p->q->r triangle
-                    auto pr = find_edge(p, r);
-                    // We also need to find pq, since edges won't be removed
-                    // from the reverse set
-                    auto pq = find_edge(p, q);
-                    // TODO we can exit early if pr is not found
-                    // TODO we can reuse the same iterator to find pr and pq
-                    if (pr && pq) {
-                        // Unroll supported triangle
-                        DEBUG("Unrolling %li->%li->%li\n", p, q, r);
-                        unroll_triangle(qr, *pq, *pr);
-                        // TODO necessary to decrement pRefC?
-                        emu::remote_add(&qp->pRefC, -1);
-                    }
-                }
-            }
-            if (qr.TC != 0) {
-                DEBUG("%li->%li TC=%li qrC=%li\n", q, qr.dst, qr.TC, qr.qrC);
             }
         }
     });
@@ -266,17 +99,15 @@ ktruss::remove_edges(long k)
         // Get the edge list for this vertex
         auto begin = g_->out_edges_begin(v);
         auto end = active_edges_end_[v];
-        // Move all edges with TC == 0 to the end of the list
+        // Move all edges with TC < k-2 to the end of the list
         auto remove_begin = std::stable_partition(begin, end,
-            [](ktruss_edge_slot& e) {
-                return e.TC != 0;
+            [k](ktruss_edge_slot& e) {
+                return e.TC >= k-2;
             }
         );
         if (remove_begin != end) {
             // Set K for the edges we are about to remove
             for_each(remove_begin, end, [=](ktruss_edge_slot &e) {
-                assert(e.TC == 0);
-                assert(e.qrC == 0);
                 DEBUG("Removed %li->%li, KTE=%li\n", v, e.dst, k-1);
                 e.KTE = k - 1;
             });
@@ -332,19 +163,18 @@ ktruss::stats
 ktruss::run()
 {
     long num_edges = g_->num_edges();
-    DEBUG("Initial graph has %li directed edges...\n", num_edges);
     long num_removed = 0;
-    count_initial_triangles();
+    count_triangles();
     long k = 3;
     do {
-        LOG("Searching for the %li-truss...\n", k);
+        LOG("Searching for the %li-truss. %li edges remaining...\n",
+            k, num_edges);
         do {
-            unroll_wedges(k);
-            unroll_supported_triangles(k);
             num_removed = remove_edges(k);
             num_edges -= num_removed;
             DEBUG("Removed %li edges, %li edges remaining\n",
                 num_removed, num_edges);
+            if (num_removed) { count_triangles(); }
         } while (num_removed > 0 && num_edges > 0);
         ++k;
     } while (num_edges > 0);
@@ -360,6 +190,8 @@ bool
 ktruss::check()
 {
     bool success = true;
+    // Sort the edge lists
+    g_->sort_edge_lists(std::less<>());
     // Reserve memory for holding intersection of two vertices
     std::vector<long> intersection;
     intersection.reserve(g_->num_vertices());

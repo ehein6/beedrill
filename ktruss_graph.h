@@ -7,11 +7,6 @@ struct ktruss_edge_slot
     long dst;
     // Number of triangles this edge is involved in
     long TC;
-    // Number of triangles for which this edge is a "qr edge"
-    long qrC;
-    // Reference count of all 'p' vertices for closing triangles,
-    // for each 'q' vertex
-    long pRefC;
     // Max K-truss number for this edge
     long KTE;
 
