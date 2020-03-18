@@ -5,6 +5,7 @@
 #include <cilk/cilk.h>
 #include <emu_c_utils/emu_c_utils.h>
 
+// Uncomment to print a line for each triangle found and each edge removed
 //#define VERBOSE_LOGGING
 
 #ifdef VERBOSE_LOGGING
@@ -63,7 +64,7 @@ ktruss::count_triangles()
             worklist_.append(p, q_begin, q_end);
         }
         // Init all triangle counts to zero
-        g_->for_each_out_edge(p, [](ktruss_edge_slot &dst) {
+        std::for_each(q_begin, q_end, [](ktruss_edge_slot &dst) {
             dst.TC = 0;
         });
     });
@@ -125,15 +126,18 @@ ktruss::compute_truss_sizes(long max_k)
 {
     stats s(max_k);
 
-    // Build the worklist by hand to include all edges that were removed
+    // Rebuild the worklist to include all edges that were removed
     worklist_.clear_all();
-    g_->for_each_vertex(fixed, [this](long p) {
+    g_->for_each_vertex(dyn, [this](long p) {
+        // Sort the edge list
+        auto edges_begin = g_->out_edges_begin(p);
+        auto edges_end = g_->out_edges_end(p);
+        std::sort(edges_begin, edges_end);
         // Use binary search to find neighbors of p that are less than p
-        auto q_begin = g_->out_edges_begin(p);
-        auto q_end = std::lower_bound(q_begin, g_->out_edges_end(p), p);
+        edges_end = std::lower_bound(edges_begin, edges_end, p);
         // Add these edges to the work list
-        if (q_begin != q_end) {
-            worklist_.append(p, q_begin, q_end);
+        if (edges_begin != edges_end) {
+            worklist_.append(p, edges_begin, edges_end);
         }
     });
 

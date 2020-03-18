@@ -5,13 +5,15 @@ struct ktruss_edge_slot
 {
     // Destination vertex ID
     long dst;
-    // Number of triangles this edge is involved in
-    long TC;
-    // Max K-truss number for this edge
-    long KTE;
-
-    // TODO These fields are not active at the same time, could save a lot of
-    // space by putting them all in a union.
+    // Use a single word for both edge properties
+    // This is safe because we only set KTE when we are about to
+    // remove the edge
+    union {
+        // Number of triangles this edge is involved in
+        long TC;
+        // Max K-truss number for this edge
+        long KTE;
+    };
 
     // Most graph algos were written when an edge was just a long int, this
     // operator allows most of that code to work
