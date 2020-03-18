@@ -194,11 +194,11 @@ int main(int argc, char ** argv)
     auto bfs = emu::make_repl_shallow<hybrid_bfs>(*g);
     std::vector<double> bfs_teps(args.num_trials);
     auto cc = emu::make_repl_shallow<components>(*g);
-    std::vector<double> cc_times(args.num_trials);
+    std::vector<double> cc_teps(args.num_trials);
     auto pr = emu::make_repl_shallow<pagerank>(*g);
-    std::vector<double> pr_times(args.num_trials);
+    std::vector<double> pr_flops(args.num_trials);
     auto tc = emu::make_repl_shallow<triangle_count>(*g);
-    std::vector<double> tc_trips(args.num_trials);
+    std::vector<double> tc_tpps(args.num_trials);
 
     // Run multiple trials of each algorithm
     for (long trial = 0; trial < args.num_trials; ++trial) {
@@ -228,25 +228,30 @@ int main(int argc, char ** argv)
         hooks_set_attr_i64("num_iters", cc_stats.num_iters);
         hooks_set_attr_i64("num_components", cc_stats.num_components);
         double cc_time_ms = hooks_region_end();
-        cc_times[trial] = cc_time_ms;
-        LOG("Found %li components in %li iterations (%3.2f ms)\n",
-            cc_stats.num_components, cc_stats.num_iters, cc_time_ms);
+
+        cc_teps[trial] = g->num_edges() * cc_stats.num_iters
+            / (1e-3 * cc_time_ms);
+        LOG("Found %li components in %li iterations (%3.2f ms, %3.2f GTEPS)\n",
+            cc_stats.num_components,
+            cc_stats.num_iters,
+            cc_time_ms,
+            1e-9 * cc_teps[trial]
+        );
 
         LOG("Computing PageRank...\n");
-        // Run the BFS
         hooks_region_begin("pagerank");
         int num_iters = pr->run(/*max_iter*/20, /*damping*/0.85, /*epsilon*/1e-5);
         hooks_set_attr_i64("num_iters", num_iters);
         double pr_time_ms = hooks_region_end();
-        pr_times[trial] = pr_time_ms;
         // Compute FLOPS per iteration:
-        double flops = num_iters * (5 * g->num_vertices() + 1 * g->num_edges());
+        double float_ops = num_iters * (5 * g->num_vertices() + 1 * g->num_edges());
         // Compute memory traffic per iteration:
         long bytes = num_iters * (56 * g->num_vertices() + 8 * g->num_edges());
+        pr_flops[trial] = float_ops/(pr_time_ms*1e-3);
         // Output results
         LOG("Computed PageRank in %i iterations (%3.2f ms, %3.0f MFLOPS, %3.0f MB/s)\n",
             num_iters, pr_time_ms,
-            1e-6*flops/(pr_time_ms*1e-3),
+            1e-6*float_ops/(pr_time_ms*1e-3),
             1e-6*bytes/(pr_time_ms*1e-3));
 
         LOG("Counting triangles...\n");
@@ -255,12 +260,12 @@ int main(int argc, char ** argv)
         hooks_set_attr_i64("num_triangles", tc_stats.num_triangles);
         hooks_set_attr_i64("num_twopaths", tc_stats.num_twopaths);
         double tc_time_ms = hooks_region_end();
-        tc_trips[trial] = tc_stats.num_triangles / (1e-3 * tc_time_ms);
-        LOG("Found %li triangles and %li two-paths in %3.2f ms, %3.2f Mega-Tris/s\n",
+        tc_tpps[trial] = tc_stats.num_twopaths / (1e-3 * tc_time_ms);
+        LOG("Found %li triangles and %li two-paths in %3.2f ms, %3.2f GTTPS\n",
             tc_stats.num_triangles,
             tc_stats.num_twopaths,
             tc_time_ms,
-            1e-6 * tc_trips[trial]
+            1e-9 * tc_tpps[trial]
         );
 
         if (args.check_results) {
@@ -282,27 +287,27 @@ int main(int argc, char ** argv)
     if (args.num_trials > 1) {
         // Summarize results
         auto bfs_stats = aggregate_stats::compute(bfs_teps);
-        auto cc_stats = aggregate_stats::compute(cc_times);
-        auto pr_stats = aggregate_stats::compute(pr_times);
-        auto tc_stats = aggregate_stats::compute(tc_trips);
+        auto cc_stats = aggregate_stats::compute(cc_teps);
+        auto pr_stats = aggregate_stats::compute(pr_flops);
+        auto tc_stats = aggregate_stats::compute(tc_tpps);
 
-        // Note: we use harmonic mean for BFS and triangle count, since in
-        // these case we are averaging rates, not times.
+        // Note: we use harmonic mean since we are averaging rates, not times.
         // Not sure how stddev is supposed to work in this case, we'll
         // just use stddev of the rates.
-
         LOG("\nMean performance over %li trials on %li nodelets:\n",
             args.num_trials, NODELETS());
         LOG("    BFS: %3.2f +/- %3.2f GTEPS, min/max %3.2f/%3.2f GTEPS\n",
             1e-9 * bfs_stats.hmean, 1e-9 * bfs_stats.stddev,
             1e-9 * bfs_stats.min,  1e-9 * bfs_stats.max);
-        LOG("    Connected Components: %3.2f +/- %3.2f ms, min/max %3.2f/%3.2f ms\n",
-            cc_stats.mean, cc_stats.stddev, cc_stats.min, cc_stats.max);
-        LOG("    PageRank: %3.2f +/- %3.2f ms, min/max %3.2f/%3.2f ms\n",
-            pr_stats.mean, pr_stats.stddev, pr_stats.min, pr_stats.max);
-        LOG("    Triangle Counting: %3.2f +/- %3.2f Mega-Tris/s, min/max %3.2f/%3.2f Mega-Tris/s\n",
-            1e-6 * tc_stats.hmean, 1e-6 * tc_stats.stddev,
-            1e-6 * tc_stats.min,  1e-6 * tc_stats.max);
+        LOG("    Connected Components: %3.2f +/- %3.2f GTEPS, min/max %3.2f/%3.2f GTEPS\n",
+            1e-9 * cc_stats.hmean, 1e-9 * cc_stats.stddev,
+            1e-9 * cc_stats.min,  1e-9 * cc_stats.max);
+        LOG("    PageRank: %3.2f +/- %3.2f MFLOPS, min/max %3.2f/%3.2f MFLOPS\n",
+            1e-6 * pr_stats.hmean, 1e-6 * pr_stats.stddev,
+            1e-6 * pr_stats.min,  1e-6 * pr_stats.max);
+        LOG("    Triangle Counting: %3.2f +/- %3.2f GTPPS, min/max %3.2f/%3.2f GTPPS\n",
+            1e-9 * tc_stats.hmean, 1e-9 * tc_stats.stddev,
+            1e-9 * tc_stats.min,  1e-9 * tc_stats.max);
     }
 
     return !success;

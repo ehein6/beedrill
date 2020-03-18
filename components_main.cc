@@ -157,8 +157,9 @@ int main(int argc, char ** argv)
         hooks_set_attr_i64("num_components", s.num_components);
         double time_ms = hooks_region_end();
 
-        LOG("Found %li components in %li iterations (%3.2f ms) \n",
-            s.num_components, s.num_iters, time_ms);
+        double teps = s.num_iters * g->num_edges() / (1e-3 * time_ms);
+        LOG("Found %li components in %li iterations (%3.2f ms, %3.2f GTEPS)\n",
+            s.num_components, s.num_iters, time_ms, 1e-9 * teps);
     }
 
     if (args.check_results) {
