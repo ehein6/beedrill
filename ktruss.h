@@ -28,6 +28,8 @@ private:
     emu::striped_array<ktruss_graph::edge_iterator> active_edges_end_;
     // Max K-truss value per vertex
     emu::striped_array<long> vertex_max_k_;
+    // Number of edges removed in current step
+    emu::repl<long> num_removed_;
     // Work list of edges to process
     worklist<ktruss_graph::edge_type> worklist_;
 

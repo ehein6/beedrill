@@ -21,6 +21,7 @@ ktruss::ktruss(ktruss_graph & g)
 : g_(&g)
 , active_edges_end_(g.num_vertices())
 , vertex_max_k_(g.num_vertices())
+, num_removed_(0)
 , worklist_(g.num_vertices())
 {}
 
@@ -28,6 +29,7 @@ ktruss::ktruss(const ktruss& other, emu::shallow_copy shallow)
 : g_(other.g_)
 , active_edges_end_(other.active_edges_end_, shallow)
 , vertex_max_k_(other.vertex_max_k_, shallow)
+, num_removed_(other.num_removed_)
 , worklist_(other.worklist_, shallow)
 {}
 
@@ -94,8 +96,7 @@ ktruss::count_triangles()
 long
 ktruss::remove_edges(long k)
 {
-    // TODO use reduction variable here?
-    long num_removed = 0;
+    num_removed_ = 0;
     g_->for_each_vertex(emu::dyn, [&](long v){
         // Get the edge list for this vertex
         auto begin = g_->out_edges_begin(v);
@@ -115,10 +116,10 @@ ktruss::remove_edges(long k)
             // Resize the edge list to drop the edges off the end
             active_edges_end_[v] = remove_begin;
             // Increment count of edges that were removed
-            emu::remote_add(&num_removed, end - remove_begin);
+            emu::remote_add(&num_removed_, end - remove_begin);
         }
     });
-    return num_removed;
+    return emu::repl_reduce(num_removed_, std::plus<>());
 }
 
 ktruss::stats
