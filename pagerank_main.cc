@@ -203,7 +203,7 @@ int main(int argc, char ** argv)
 
         // Output results
         time_ms_all_trials += time_ms;
-        LOG("Computed PageRank in %i iterations (%3.2f ms, %3.0f MFLOPS, %3.0f MB/s) \n",
+        LOG("Computed PageRank in %i iterations (%3.2f ms, %3.2f MFLOPS, %3.2f MB/s) \n",
             num_iters, time_ms,
             1e-6*flops/(time_ms*1e-3),
             1e-6*bytes/(time_ms*1e-3));

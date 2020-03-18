@@ -249,7 +249,7 @@ int main(int argc, char ** argv)
         long bytes = num_iters * (56 * g->num_vertices() + 8 * g->num_edges());
         pr_flops[trial] = float_ops/(pr_time_ms*1e-3);
         // Output results
-        LOG("Computed PageRank in %i iterations (%3.2f ms, %3.0f MFLOPS, %3.0f MB/s)\n",
+        LOG("Computed PageRank in %i iterations (%3.2f ms, %3.2f MFLOPS, %3.2f MB/s)\n",
             num_iters, pr_time_ms,
             1e-6*float_ops/(pr_time_ms*1e-3),
             1e-6*bytes/(pr_time_ms*1e-3));
