@@ -128,13 +128,11 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
         exit(1);
     }
 
-    char buffer[80];
-
     pvector<edge> edges;
-
     long num_vertices = -1;
     long num_edges = -1;
     // Read one line at a time from the file, counting edges as we go
+    char buffer[80];
     while (fgets(buffer, sizeof buffer, fp_in)) {
         // Ignore comments
         if (buffer[0] == '#') {
@@ -175,10 +173,13 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
     );
     auto max_vertex_id = std::max(max_edge.src, max_edge.dst);
     if (num_vertices != max_vertex_id + 1) {
-        printf("Error: max vertex ID is %li, expected %li\n",
-            max_vertex_id, num_vertices - 1);
+        auto num_ids = count_unique_vertex_ids(edges.begin(), edges.end());
+        printf("Error: Found %li unique vertex ID's, expected %li\n",
+            num_ids, num_vertices);
         exit(1);
     }
+
+    remap_vertex_ids(num_vertices, edges.begin(), edges.end());
 
     printf("Dumping %li edges to %s...\n", edges.size(), file_out);
     // Dump edge list to file

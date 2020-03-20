@@ -76,6 +76,27 @@ remap_vertex_ids(long num_vertices, Iterator begin, Iterator end)
     );
 }
 
+template<class Iterator>
+long
+count_unique_vertex_ids(Iterator begin, Iterator end)
+{
+    using Edge = typename std::iterator_traits<Iterator>::value_type;
+    // Build a list of all the vertex ID's
+    pvector<long> vertex_ids;
+    vertex_ids.resize(std::distance(begin, end) * 2);
+    std::for_each(begin, end, [&](const Edge& e) {
+        auto i = &e - begin;
+        vertex_ids[i*2] = e.src;
+        vertex_ids[i*2 + 1] = e.dst;
+    });
+    // Sort and dedup
+    std::sort(vertex_ids.begin(), vertex_ids.end());
+    pvector<long> unique_vertex_ids(vertex_ids.size());
+    std::unique_copy(vertex_ids.begin(), vertex_ids.end(),
+        unique_vertex_ids.begin());
+    return unique_vertex_ids.size();
+}
+
 struct edge
 {
     int64_t src, dst;
