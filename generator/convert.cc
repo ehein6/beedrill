@@ -146,6 +146,9 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
                 edges.reserve(num_edges);
             }
             continue;
+        } else if (buffer[0] == '\n') {
+            // If the file has windows line endings, fgets will handle the \r
+            // and leave the \n in the buffer.
         }
         // Read two edges from the line. Ignore other data.
         char *pos = buffer;
@@ -176,6 +179,7 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
         exit(1);
     }
 
+    printf("Dumping %li edges to %s...\n", edges.size(), file_out);
     // Dump edge list to file
     dump_bin(file_out, num_vertices, edges.begin(), edges.end());
 }
