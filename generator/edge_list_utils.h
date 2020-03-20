@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iterator>
 #include <iostream>
 #include <fstream>
