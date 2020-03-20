@@ -138,3 +138,55 @@ public:
         *dst = j;
     }
 };
+
+// Fill up an array with randomly generated edges
+template<class Iterator>
+void
+rmat_fill(rmat_edge_generator& generator, Iterator edges_begin, Iterator edges_end)
+{
+    using Edge = typename std::iterator_traits<Iterator>::value_type;
+    // Make a local copy of the edge generator
+    rmat_edge_generator local_rng = generator;
+
+    // Keeps track of this thread's position in the random number stream relative to the loop index
+    int64_t pos = 0;
+    const int64_t num_edges = std::distance(edges_begin, edges_end);
+
+    // Generate edges in parallel, while maintaining RNG state as if we did it serially
+    // Mark the RNG with firstprivate so each thread gets a copy of the inital state
+    // Also mark the RNG with lastprivate so the master thread gets the state after the last iteration
+#pragma omp parallel for \
+        firstprivate(local_rng) lastprivate(local_rng) \
+        firstprivate(pos) \
+        schedule(static)
+    for (int64_t i = 0; i < num_edges; ++i)
+    {
+        // Assuming we will always execute loop iterations in order (we can't jump backwards)
+        assert(pos <= i);
+        // Advance RNG whenever we skip ahead in the iteration space
+        if (pos < i) {
+            uint64_t skip_distance = static_cast<uint64_t>(i - pos);
+            local_rng.discard(skip_distance);
+        }
+        // Generate the next random edge
+        Edge& e = edges_begin[i];
+        local_rng.next_edge(&e.src, &e.dst);
+
+        // Remember position, in case OpenMP jumps through the iteration space
+        pos = i+1;
+    }
+
+    // Go back through the list and regenerate self-edges
+    // This step is serial, since we don't know how many times each edge has to be
+    // re-rolled before we get a non-self-edge
+    for (int64_t i = 0; i < num_edges; ++i)
+    {
+        Edge& e = edges_begin[i];
+        while (e.src == e.dst) {
+            local_rng.next_edge(&e.src, &e.dst);
+        }
+    }
+
+    // Copy final RNG state back to caller
+    generator = local_rng;
+}

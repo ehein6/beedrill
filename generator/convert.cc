@@ -4,13 +4,13 @@
 #include <cstdlib>
 #include <algorithm>
 #include <string>
+
+#include "pvector.h"
+#include "edge_list_utils.h"
+
 extern "C" {
 #include "../mmio.h"
 }
-struct edge {
-    long src;
-    long dst;
-};
 
 // Check if string has a given suffix
 // Adapted from https://stackoverflow.com/a/874160/2570605
@@ -105,26 +105,99 @@ convert_from_mtx_to_binary(const char* file_in, const char* file_out)
     fclose(fp_out);
 }
 
+long read_long(char*& pos)
+{
+    char* new_pos;
+    long value = strtol(pos, &new_pos, 10);
+    if (pos == new_pos) {
+        printf("Couldn't parse vertex ID from: %s\n", pos);
+        exit(1);
+    }
+    pos = new_pos;
+    return value;
+}
+
+void
+convert_from_txt_to_binary(const char* file_in, const char* file_out)
+{
+    // Open input file
+    printf("Opening %s...\n", file_in);
+    FILE* fp_in = fopen(file_in, "r");
+    if (fp_in == nullptr) {
+        printf("Unable to open %s\n", file_in);
+        exit(1);
+    }
+
+    char buffer[80];
+
+    pvector<edge> edges;
+
+    long num_vertices = -1;
+    long num_edges = -1;
+    // Read one line at a time from the file, counting edges as we go
+    while (fgets(buffer, sizeof buffer, fp_in)) {
+        // Ignore comments
+        if (buffer[0] == '#') {
+            // Try to read number of edges/vertices
+            // If this fails, nothing bad happens
+            sscanf(buffer, "# Nodes: %li Edges: %li",
+                &num_vertices, &num_edges);
+            if (num_edges > 0) {
+                edges.reserve(num_edges);
+            }
+            continue;
+        }
+        // Read two edges from the line. Ignore other data.
+        char *pos = buffer;
+        long src = read_long(pos);
+        long dst = read_long(pos);
+        // Copy edge into buffer
+        edges.push_back({src, dst});
+    }
+    fclose(fp_in);
+
+    // Make sure the header matches the number of edges read
+    if (num_edges != static_cast<long>(edges.size())) {
+        printf("Error: we read %li edges from file, expected %li\n",
+            edges.size(), num_edges);
+        exit(1);
+    }
+
+    // Make sure num_vertices is correct
+    auto max_edge = *std::max_element(edges.begin(), edges.end(),
+        [](const edge& lhs, const edge& rhs) {
+            return std::max(lhs.src, lhs.dst) < std::max(rhs.src, rhs.dst);
+        }
+    );
+    auto max_vertex_id = std::max(max_edge.src, max_edge.dst);
+    if (num_vertices != max_vertex_id + 1) {
+        printf("Error: max vertex ID is %li, expected %li\n",
+            max_vertex_id, num_vertices - 1);
+        exit(1);
+    }
+
+    // Dump edge list to file
+    dump_bin(file_out, num_vertices, edges.begin(), edges.end());
+}
+
 int main(int argc, char * argv[])
 {
-
     if (argc != 3) {
-        printf("Usage: %s file_in.mtx file_out\n", argv[0]);
+        printf("Usage: %s file_in file_out\n", argv[0]);
         exit(1);
     }
 
     const char * file_in = argv[1];
     const char * file_out = argv[2];
 
-    if (!has_suffix(file_in, ".mtx")) {
-        printf("Expected Matrix Market input file.\n");
-        exit(1);
-    } else if (has_suffix(file_out, ".mtx")) {
-        printf("Output file should not use mtx format.\n");
+    if (has_suffix(file_in, ".mtx")) {
+        convert_from_mtx_to_binary(file_in, file_out);
+    } else if (has_suffix(file_in, ".txt")) {
+        convert_from_txt_to_binary(file_in, file_out);
+    } else {
+        printf("Unrecognized file extension\n");
         exit(1);
     }
-
-    convert_from_mtx_to_binary(file_in, file_out);
 
     return 0;
 }
