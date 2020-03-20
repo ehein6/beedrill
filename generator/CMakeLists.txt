@@ -1,3 +1,8 @@
+
+# Build matrix market IO library
+add_library(mmio mmio.c mmio.h)
+link_libraries(mmio)
+
 # This target is meant to be run on x86 with OpenMP
 # Additionally, it assumes parallel implementations of <algorithm> functions
 # See https://gcc.gnu.org/onlinedocs/libstdc++/manual/parallel_mode.html

@@ -54,19 +54,6 @@ struct dist_edge_list
     static handle
     load_binary(const char* filename);
 
-    /**
-     * Load edge list from matrix market (.mtx) file
-     * @param filename
-     * @return
-     */
-    static handle
-    load_mtx(const char* filename);
-
-    // Creates distributed edge list from file
-    // Reads from all nodelets at once
-    // Assumes filename is the same on all nodelets
-    static handle
-    load_distributed(const char* filename);
     // Print the edge list to stdout for debugging
     void dump() const;
 

@@ -9,7 +9,7 @@
 #include "edge_list_utils.h"
 
 extern "C" {
-#include "../mmio.h"
+#include "mmio.h"
 }
 
 // Check if string has a given suffix

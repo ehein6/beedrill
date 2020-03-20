@@ -9,6 +9,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 # Turn warnings into errors
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
+
+# Build graph generator
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
+    add_subdirectory(generator)
+endif()
+
 # Enable Cilk
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcilkplus")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcilkplus")
@@ -41,22 +47,6 @@ function(add_emusim_test name command)
         add_test(NAME ${name} COMMAND ${stripped-cmd} ${ARGN})
     endif()
 endfunction()
-
-# Stop compilation after the first error
-#add_definitions(
-#    -Wfatal-errors
-#)
-
-add_library(mmio
-    mmio.c
-    mmio.h
-)
-link_libraries(mmio)
-
-# Build graph generator
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emu1")
-    add_subdirectory(generator)
-endif()
 
 # Build graph library
 include_directories(.)

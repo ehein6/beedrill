@@ -7,12 +7,7 @@
 #include <string>
 #include <emu_cxx_utils/for_each.h>
 
-extern "C" {
-#include "mmio.h"
-}
-
 using namespace emu;
-
 
 struct edge {
     long src;
@@ -200,7 +195,7 @@ load_edge_list_local(const char* path, edge_list * el)
 
 // Check if string has a given suffix
 // Adapted from https://stackoverflow.com/a/874160/2570605
-static bool
+bool
 has_suffix (std::string const &str, std::string const &suffix)
 {
     if (str.length() >= suffix.length()) {
@@ -214,84 +209,7 @@ has_suffix (std::string const &str, std::string const &suffix)
 dist_edge_list::handle
 dist_edge_list::load(const char* filename)
 {
-    if (has_suffix(filename, ".mtx")) {
-        return load_mtx(filename);
-    } else {
-        return load_binary(filename);
-    }
-}
-
-// Initializes the distributed edge list EL from the file
-dist_edge_list::handle
-dist_edge_list::load_mtx(const char* filename)
-{
-    LOG("Opening %s...\n", filename);
-    FILE* fp = fopen(filename, "rb");
-    if (fp == nullptr) {
-        LOG("Unable to open %s\n", filename);
-        exit(1);
-    }
-
-    // Read type of matrix
-    MM_typecode matcode;
-    if (mm_read_banner(fp, &matcode)!= 0) {
-        LOG("Could not process Matrix Market banner.\n");
-        exit(1);
-    }
-
-    // Check matrix format
-    if (!(mm_is_symmetric(matcode)
-       && mm_is_sparse(matcode)
-       && mm_is_coordinate(matcode))) {
-        LOG("Need symmetric sparse matrix in coordinate format.\n");
-        exit(1);
-    }
-
-    // Read size of matrix
-    int num_rows, num_cols, num_entries;
-    if (mm_read_mtx_crd_size(fp, &num_rows, &num_cols, &num_entries) !=0)
-        exit(1);
-
-    // Allocate the edge list
-    long num_vertices = std::max(num_rows, num_cols);
-    long num_edges = num_entries;
-    auto dist_el = emu::make_repl_shallow<dist_edge_list>(
-        num_vertices, num_edges
-    );
-
-    LOG("Loading %li edges from %s\n", num_edges, filename);
-
-    hooks_region_begin("load_mtx");
-    // Read the edges
-    int src, dst;
-    int integer;
-    double real, imag;
-    for (long i = 0; i < num_edges; ++i) {
-        switch (matcode[2]) {
-            // Pattern: src dst
-            case 'P': fscanf(fp, "%d %d\n", &src, &dst); break;
-            // Integer: src dst integer
-            case 'I': fscanf(fp, "%d %d %d\n", &src, &dst, &integer); break;
-            // Real: src dst real
-            case 'R': fscanf(fp, "%d %d %lg\n", &src, &dst, &real); break;
-            // Complex: src dst real imag
-            case 'C': fscanf(fp, "%d %d %lg %lg\n", &src, &dst, &real, &imag); break;
-        }
-
-        // Remote-write into the array, adjusting for 1-based indexing
-        dist_el->src_[i] = src - 1;
-        dist_el->dst_[i] = dst - 1;
-
-        // Print progress meter
-        // Uses carriage return to update the same line over and over
-        if (i % 10000 == 0) {
-            LOG("\rLoaded %3.0f%%...", 100.0 * i / num_edges);
-        }
-    }
-    LOG("\n");
-    hooks_region_end();
-
-    return dist_el;
+    return load_binary(filename);
 }
 
 // Initializes the distributed edge list EL from the file
