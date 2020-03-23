@@ -54,6 +54,49 @@ ktruss::clear()
     });
 }
 
+static inline void
+record_triangle(
+    ktruss_graph::edge_iterator pq,
+    ktruss_graph::edge_iterator qr,
+    ktruss_graph::edge_iterator pr)
+{
+    remote_add(&pq->TC, 1);
+    remote_add(&qr->TC, 1);
+    remote_add(&pr->TC, 1);
+}
+
+void
+scan_intersection(
+    ktruss_graph::edge_iterator pq,
+    ktruss_graph::edge_iterator qr, ktruss_graph::edge_iterator qr_end,
+    ktruss_graph::edge_iterator pr)
+{
+    // Handle one at a time until the number of edges is divisible by 4
+    for (;(qr_end - qr) % 4 != 0; ++qr) {
+        while (*pr < *qr) { ++pr; }
+        if (*qr == *pr) { record_triangle(pq, qr, pr); }
+    }
+
+    for (long r1, r2, r3, r4; qr < qr_end;) {
+        // Pick up four neighbors of v
+        r1 = *qr++;
+        r2 = *qr++;
+        r3 = *qr++;
+        r4 = *qr++;
+        // Now we have u->v and v->w
+        // Scan through neighbors of u, looking for w
+        while (*pr < r1) { ++pr; }
+        if (r1 == *pr) { record_triangle(pq, qr-4, pr); }
+        while (*pr < r2) { ++pr; }
+        if (r2 == *pr) { record_triangle(pq, qr-3, pr); }
+        while (*pr < r3) { ++pr; }
+        if (r3 == *pr) { record_triangle(pq, qr-2, pr); }
+        while (*pr < r4) { ++pr; }
+        if (r4 == *pr) { record_triangle(pq, qr-1, pr); }
+        RESIZE();
+    }
+}
+
 void
 ktruss::count_triangles()
 {
@@ -80,16 +123,7 @@ ktruss::count_triangles()
         // Iterator over edges of p
         auto pr = g_->out_edges_begin(p);
 
-        for (auto qr = qr_begin; qr != qr_end; ++qr){
-            while (*pr < *qr) { pr++; }
-            if (*qr == *pr) {
-                // Found the triangle p->q->r
-                DEBUG("Triangle %li->%li->%li\n", p, q, qr->dst);
-                emu::remote_add(&qr->TC, 1);
-                emu::remote_add(&pq.TC, 1);
-                emu::remote_add(&pr->TC, 1);
-            }
-        }
+        scan_intersection(&pq, qr_begin, qr_end, pr);
     });
 }
 
