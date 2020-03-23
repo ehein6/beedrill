@@ -132,7 +132,7 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
     long num_vertices = -1;
     long num_edges = -1;
     // Read one line at a time from the file, counting edges as we go
-    char buffer[80];
+    char buffer[255];
     while (fgets(buffer, sizeof buffer, fp_in)) {
         // Ignore comments
         if (buffer[0] == '#') {
