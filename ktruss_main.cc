@@ -158,6 +158,7 @@ int main(int argc, char ** argv)
         hooks_region_begin("ktruss");
         ktruss::stats s = kt->run(args.k_limit);
         hooks_set_attr_i64("max_k", s.max_k);
+        hooks_set_attr_i64("num_iters", s.num_iters);
         double time_ms = hooks_region_end();
 
         LOG("Computed k-truss in %3.2f ms, max k is %li\n", time_ms, s.max_k);

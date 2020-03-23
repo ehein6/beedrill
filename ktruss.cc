@@ -177,9 +177,8 @@ ktruss::compute_truss_sizes(long max_k)
         }
     });
     worklist_.process_all_edges(dynamic_policy<64>(),
-        [this, max_k](long src, ktruss_edge_slot& dst) {
+        [this](long src, ktruss_edge_slot& dst) {
             assert(dst.KTE >= 2);
-            assert(dst.KTE <= max_k);
             // Vertex gets the max K value of any edge connected to it
             emu::remote_max(&vertex_max_k_[src], dst.KTE);
             emu::remote_max(&vertex_max_k_[dst], dst.KTE);
@@ -230,6 +229,7 @@ ktruss::run(long k_limit)
         LOG("Searching for the %li-truss. %li edges remaining...\n",
             k, num_edges);
         do {
+            s.num_iters++;
             // Remove edges where TC < k-2
             num_removed = remove_edges(k);
             num_edges -= num_removed;

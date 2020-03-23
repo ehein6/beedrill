@@ -8,7 +8,9 @@ class ktruss
 public:
     struct stats {
         // Maximum truss size found
-        long max_k;
+        long max_k = 0;
+        // Number of triangle count iterations
+        long num_iters = 0;
         // Number of edges in each truss
         std::vector<long> edges_per_truss;
         // Number of vertices in each truss
