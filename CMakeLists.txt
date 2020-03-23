@@ -106,7 +106,7 @@ add_executable(ktruss
 install(TARGETS ktruss RUNTIME DESTINATION ".")
 
 add_emusim_test( "ktruss"
-    ktruss.mwx --graph ${TEST_GRAPH} --check_results
+    ktruss.mwx --graph ${TEST_GRAPH} --k_limit 4 --check_results
 )
 
 # Triangle Count
