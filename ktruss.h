@@ -15,11 +15,6 @@ public:
         std::vector<long> vertices_per_truss;
         // NOTE There is no 0-truss or 1-truss, so edges_per_truss[0] is used
         // for the 2-truss, and so on.
-        explicit stats(long k)
-        : max_k(k)
-        , edges_per_truss(k-1, 0)
-        , vertices_per_truss(k-1, 0)
-        {}
     };
 private:
     emu::repl<ktruss_graph*> g_;
@@ -33,15 +28,19 @@ private:
     // Work list of edges to process
     worklist<ktruss_graph::edge_type> worklist_;
 
+    // Counts the number of triangles per edge
     void count_triangles();
+    // Removes edges with triangle count < k-2
     long remove_edges(long k);
-    stats compute_truss_sizes(long max_k);
-
+    // Counts the number of vertices in each truss
+    std::vector<long> compute_truss_sizes(long max_k);
+    // Handles special logic for quitting the algorithm early
+    stats early_exit(long k, stats& s);
 public:
     explicit ktruss(ktruss_graph& g);
     ktruss(const ktruss& other, emu::shallow_copy);
 
-    stats run();
+    stats run(long k_limit);
     void clear();
     bool check();
     void dump_graph();

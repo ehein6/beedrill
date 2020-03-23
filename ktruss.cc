@@ -156,10 +156,11 @@ ktruss::remove_edges(long k)
     return emu::repl_reduce(num_removed_, std::plus<>());
 }
 
-ktruss::stats
+std::vector<long>
 ktruss::compute_truss_sizes(long max_k)
 {
-    stats s(max_k);
+    // Will hold number of vertices in each truss, 2 through k
+    std::vector<long> vertices_per_truss(max_k-1);
 
     // Rebuild the worklist to include all edges that were removed
     worklist_.clear_all();
@@ -175,53 +176,82 @@ ktruss::compute_truss_sizes(long max_k)
             worklist_.append(p, edges_begin, edges_end);
         }
     });
+    worklist_.process_all_edges(dynamic_policy<64>(),
+        [this, max_k](long src, ktruss_edge_slot& dst) {
+            assert(dst.KTE >= 2);
+            assert(dst.KTE <= max_k);
+            // Vertex gets the max K value of any edge connected to it
+            emu::remote_max(&vertex_max_k_[src], dst.KTE);
+            emu::remote_max(&vertex_max_k_[dst], dst.KTE);
+        }
+    );
 
-    // Process all p->q edges with a thread pool
-    worklist_.process_all_edges(dyn, [&](long src, ktruss_edge_slot& dst) {
-        assert(dst.KTE >= 2);
-        assert(dst.KTE <= max_k);
+    // Capture the pointer to the vector's data (rather than a reference to
+    // the vector itself) so we dont' have to migrate home
+    g_->for_each_vertex(fixed, [this, vpt=vertices_per_truss.data()](long v) {
         // This vertex is a member of all trusses up through k
-        emu::remote_max(&vertex_max_k_[src], dst.KTE);
-        emu::remote_max(&vertex_max_k_[dst], dst.KTE);
-        // This edge is a member of all trusses up through k
-        for (long k = 2; k <= dst.KTE; ++k) {
-            emu::remote_add(&s.edges_per_truss[k-2], 1);
-        }
-    });
-
-    g_->for_each_vertex(fixed, [&](long v) {
-        // This edge is a member of all trusses up through k
         for (long k = 2; k <= vertex_max_k_[v]; ++k) {
-            emu::remote_add(&s.vertices_per_truss[k-2], 1);
+            emu::remote_add(&vpt[k-2], 1);
         }
     });
+    return vertices_per_truss;
+}
+
+ktruss::stats
+ktruss::early_exit(long k, ktruss::stats& s)
+{
+    // Set KTE = k for all active edges
+    g_->for_each_vertex(fixed, [this, k](long p) {
+        auto q_begin = g_->out_edges_begin(p);
+        auto q_end = active_edges_end_[p];
+        std::for_each(q_begin, q_end, [k](ktruss_edge_slot &dst) {
+            dst.KTE = k;
+        });
+    });
+    // Compute stats assuming k is max_k
+    s.max_k = k;
+    s.vertices_per_truss = compute_truss_sizes(s.max_k);
     return s;
 }
 
 ktruss::stats
-ktruss::run()
+ktruss::run(long k_limit)
 {
     long num_edges = g_->num_edges();
     long num_removed = 0;
+    stats s;
+    // NOTE There is no 0-truss or 1-truss, so edges_per_truss[0] is used
+    // for the 2-truss, and so on.
+    s.edges_per_truss.reserve(256);
+    s.edges_per_truss.push_back(num_edges);
     count_triangles();
     long k = 3;
     do {
         LOG("Searching for the %li-truss. %li edges remaining...\n",
             k, num_edges);
         do {
+            // Remove edges where TC < k-2
             num_removed = remove_edges(k);
             num_edges -= num_removed;
             DEBUG("Removed %li edges, %li edges remaining\n",
                 num_removed, num_edges);
+            // Recompute triangle counts
             if (num_removed) { count_triangles(); }
+        // Continue until there are no more edges to remove
         } while (num_removed > 0 && num_edges > 0);
+        // Record number of edges in this truss
+        s.edges_per_truss.push_back(num_edges);
+        // Check for early exit
+        if (k == k_limit) { return early_exit(k, s); }
+        // Move to next truss
         ++k;
+    // Loop until there are no more edges, or we hit the limit
     } while (num_edges > 0);
     // The last iteration removed all edges and incremented k
     // That means there was no k-1 truss found, max k is actually k-2
-    k -= 2;
-
-    return compute_truss_sizes(k);
+    s.max_k = k - 2;
+    s.vertices_per_truss = compute_truss_sizes(s.max_k);
+    return s;
 }
 
 // Do serial ktruss computation

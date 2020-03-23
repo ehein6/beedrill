@@ -14,6 +14,7 @@ const struct option long_options[] = {
     {"check_graph"      , no_argument},
     {"dump_graph"       , no_argument},
     {"check_results"    , no_argument},
+    {"k_limit"          , required_argument},
     {"help"             , no_argument},
     {nullptr}
 };
@@ -30,6 +31,7 @@ print_help(const char* argv0)
     LOG("\t--check_graph        Validate the constructed graph against the edge list (slow)\n");
     LOG("\t--dump_graph         Print the graph to stdout after construction (slow)\n");
     LOG("\t--check_results      Validate the BFS results (slow)\n");
+    LOG("\t--k_limit            Stop after reaching this value of k.\n");
     LOG("\t--help               Print command line help\n");
 }
 
@@ -42,6 +44,7 @@ struct ktruss_args
     bool check_graph;
     bool dump_graph;
     bool check_results;
+    long k_limit = std::numeric_limits<long>::max();
 
     static ktruss_args
     parse(int argc, char *argv[])
@@ -82,6 +85,8 @@ struct ktruss_args
                 args.dump_graph = true;
             } else if (!strcmp(option_name, "check_results")) {
                 args.check_results = true;
+            } else if (!strcmp(option_name, "k_limit")) {
+                args.k_limit = atol(optarg);
             } else if (!strcmp(option_name, "help")) {
                 print_help(argv[0]);
                 exit(1);
@@ -89,6 +94,7 @@ struct ktruss_args
         }
         if (args.graph_filename == NULL) { LOG( "Missing graph filename\n"); exit(1); }
         if (args.num_trials <= 0) { LOG( "num_trials must be > 0\n"); exit(1); }
+        if (args.k_limit < 3) { LOG( "k_limit must be >= 3\n"); exit(1); }
         return args;
     }
 };
@@ -150,7 +156,7 @@ int main(int argc, char ** argv)
 
         LOG("Computing K-truss...\n");
         hooks_region_begin("ktruss");
-        ktruss::stats s = kt->run();
+        ktruss::stats s = kt->run(args.k_limit);
         hooks_set_attr_i64("max_k", s.max_k);
         double time_ms = hooks_region_end();
 
