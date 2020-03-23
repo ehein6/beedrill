@@ -5,6 +5,7 @@
 #include <sstream>
 #include <algorithm>
 #include <numeric>
+#include <unordered_map>
 
 #include "pvector.h"
 
@@ -74,6 +75,73 @@ remap_vertex_ids(long num_vertices, Iterator begin, Iterator end)
             e.dst = mapping[e.dst];
         }
     );
+}
+
+
+template<class Iterator>
+long
+max_vertex_id(Iterator begin, Iterator end)
+{
+    using Edge = typename std::iterator_traits<Iterator>::value_type;
+    auto max_edge = *std::max_element(begin, end,
+        [](const Edge& lhs, const Edge& rhs) {
+            return std::max(lhs.src, lhs.dst) < std::max(rhs.src, rhs.dst);
+        }
+    );
+    return std::max(max_edge.src, max_edge.dst);
+}
+
+template<class Iterator>
+long
+compress_vertex_ids(Iterator begin, Iterator end)
+{
+    using Edge = typename std::iterator_traits<Iterator>::value_type;
+    // Build a list of all the vertex ID's
+    pvector<long> vertex_ids;
+    vertex_ids.resize(std::distance(begin, end) * 2);
+    std::for_each(begin, end, [&](const Edge& e) {
+        auto i = &e - begin;
+        vertex_ids[i*2] = e.src;
+        vertex_ids[i*2 + 1] = e.dst;
+    });
+    // Sort
+    std::sort(vertex_ids.begin(), vertex_ids.end());
+    // Dedup
+    pvector<long> unique_vertex_ids(vertex_ids.size());
+    auto unique_end = std::unique_copy(vertex_ids.begin(), vertex_ids.end(),
+        unique_vertex_ids.begin());
+    long num_unique = unique_end - unique_vertex_ids.begin();
+    unique_vertex_ids.resize(num_unique);
+    // Do all the ID's 0 through N-1 appear in the list?
+    if (unique_vertex_ids.back() == num_unique) {
+        // Already compressed, nothing to do
+        return num_unique;
+    }
+    // Create a list of numbers 1 through N
+    pvector<int64_t> new_ids(num_unique);
+    std::iota(new_ids.begin(), new_ids.end(), 0);
+    // Shuffle randomly
+    std::random_shuffle(new_ids.begin(), new_ids.end());
+
+    // Create reverse mapping
+    // TODO can't insert into map in parallel
+    std::unordered_map<long, long> mapping(num_unique);
+    for (auto iter = unique_vertex_ids.begin(); iter != unique_vertex_ids.end(); ++iter) {
+        // Compute unique position within the list
+        long i = iter - unique_vertex_ids.begin();
+        long v = *iter;
+        // Use to select new vertex ID
+        mapping[v] = new_ids[i];
+    }
+
+    // Use the random array to remap vertex ID's
+    std::for_each(begin, end,
+        [&](Edge& e) {
+            e.src = mapping[e.src];
+            e.dst = mapping[e.dst];
+        }
+    );
+    return num_unique;
 }
 
 template<class Iterator>

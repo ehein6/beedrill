@@ -166,20 +166,12 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
     }
 
     // Make sure num_vertices is correct
-    auto max_edge = *std::max_element(edges.begin(), edges.end(),
-        [](const edge& lhs, const edge& rhs) {
-            return std::max(lhs.src, lhs.dst) < std::max(rhs.src, rhs.dst);
-        }
-    );
-    auto max_vertex_id = std::max(max_edge.src, max_edge.dst);
-    if (num_vertices != max_vertex_id + 1) {
-        auto num_ids = count_unique_vertex_ids(edges.begin(), edges.end());
+    auto num_ids = compress_vertex_ids(edges.begin(), edges.end());
+    if (num_vertices != num_ids) {
         printf("Error: Found %li unique vertex ID's, expected %li\n",
             num_ids, num_vertices);
         exit(1);
     }
-
-    remap_vertex_ids(num_vertices, edges.begin(), edges.end());
 
     printf("Dumping %li edges to %s...\n", edges.size(), file_out);
     // Dump edge list to file
