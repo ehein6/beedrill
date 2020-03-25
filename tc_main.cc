@@ -153,7 +153,7 @@ int main(int argc, char ** argv)
         hooks_set_attr_i64("num_twopaths", s.num_twopaths);
         double time_ms = hooks_region_end();
 
-        LOG("Found %li triangles and %li two-paths in %3.2f ms, %3.2f MTPPS \n",
+        LOG("Found %li triangles and %li two-paths in %3.2f ms, %3.2f GTPPS \n",
             s.num_triangles,
             s.num_twopaths,
             time_ms,
