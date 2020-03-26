@@ -112,11 +112,7 @@ compress_vertex_ids(Iterator begin, Iterator end)
         unique_vertex_ids.begin());
     long num_unique = unique_end - unique_vertex_ids.begin();
     unique_vertex_ids.resize(num_unique);
-    // Do all the ID's 0 through N-1 appear in the list?
-    if (unique_vertex_ids.back() == num_unique) {
-        // Already compressed, nothing to do
-        return num_unique;
-    }
+
     // Create a list of numbers 1 through N
     pvector<int64_t> new_ids(num_unique);
     std::iota(new_ids.begin(), new_ids.end(), 0);

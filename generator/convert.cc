@@ -131,6 +131,7 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
     pvector<edge> edges;
     long num_vertices = -1;
     long num_edges = -1;
+    long num_self_edges = 0;
     // Read one line at a time from the file, counting edges as we go
     char buffer[255];
     while (fgets(buffer, sizeof buffer, fp_in)) {
@@ -153,10 +154,20 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
         char *pos = buffer;
         long src = read_long(pos);
         long dst = read_long(pos);
+
+        if (src == dst) {
+            ++num_self_edges;
+            continue;
+        }
         // Copy edge into buffer
         edges.push_back({src, dst});
     }
     fclose(fp_in);
+
+    if (num_self_edges) {
+        printf("WARNING: Ignored %li self-edges\n", num_self_edges);
+        num_edges -= num_self_edges;
+    }
 
     // Make sure the header matches the number of edges read
     if (num_edges != static_cast<long>(edges.size())) {
@@ -165,13 +176,26 @@ convert_from_txt_to_binary(const char* file_in, const char* file_out)
         exit(1);
     }
 
-    // Make sure num_vertices is correct
+    // Make the vertex ID space dense and permute it
     auto num_ids = compress_vertex_ids(edges.begin(), edges.end());
-    if (num_vertices != num_ids) {
+    // Make sure num_vertices is correct
+    // Skip this check if self-edges were detected - we don't know if
+    // removing a self-edge has removed the vertex from the graph entirely
+    if (num_vertices != num_ids && num_self_edges == 0) {
         printf("Error: Found %li unique vertex ID's, expected %li\n",
             num_ids, num_vertices);
         exit(1);
     }
+
+    // Make all edges point from lower to higher vertex ID
+    flip_edges(edges.begin(), edges.end());
+    // Sort edges in ascending order
+    sort_edges(edges.begin(), edges.end());
+    // Deduplicate edges
+    auto new_end = dedup_edges(edges.begin(), edges.end());
+    edges.resize(new_end - edges.begin());
+    // Shuffle edges randomly
+    std::random_shuffle(edges.begin(), edges.end());
 
     printf("Dumping %li edges to %s...\n", edges.size(), file_out);
     // Dump edge list to file
