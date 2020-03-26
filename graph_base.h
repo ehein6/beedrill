@@ -120,6 +120,16 @@ public:
                 ok = 0;
             }
         });
+
+        // Check for duplicates (assumes the edge lists are sorted)
+        for_each_vertex(emu::dyn, [&](long v) {
+            auto pos = std::adjacent_find(out_edges_begin(v), out_edges_end(v));
+            if (pos != out_edges_end(v)) {
+                LOG("Edge %li->%li is duplicated\n", v, pos->dst);
+                ok = false;
+            }
+        });
+
         return (bool)ok;
     }
 
