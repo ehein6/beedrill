@@ -37,14 +37,12 @@ public:
         while (std::distance(begin, end) % 4 != 0) {
             worker_(*begin++);
         }
-        // Four items, which are meant to be held in registers
-        typename std::iterator_traits<Iterator>::value_type e1, e2, e3, e4;
         for (; begin != end;) {
             // Pick up four items
-            e4 = *begin++;
-            e3 = *begin++;
-            e2 = *begin++;
-            e1 = *begin++;
+            auto e1 = *begin++;
+            auto e2 = *begin++;
+            auto e3 = *begin++;
+            auto e4 = *begin++;
             // HACK - prevent forward propagation in Emu compiler from
             // reordering these instructions
             (void)NODE_ID();
