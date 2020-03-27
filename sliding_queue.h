@@ -29,8 +29,9 @@ public:
     long * end() { return &buffer_ptr_[end_]; }
 
     explicit sliding_queue(long size)
-    : buffers_(size)
-    , heads_(size)
+    // Each queue only needs to store vertices on the local nodelet
+    : buffers_(size / NODELETS())
+    , heads_(size / NODELETS())
     , head_ptr_(heads_.get_localto(this))
     , buffer_ptr_(buffers_.get_localto(this))
     {
