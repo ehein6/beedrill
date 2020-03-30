@@ -300,6 +300,7 @@ public:
     repl&
     operator=(const T& rhs)
     {
+        assert(emu::pmanip::is_repl(this));
         for (long i = 0; i < NODELETS(); ++i) {
             get_nth(i) = rhs;
         }

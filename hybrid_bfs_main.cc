@@ -18,6 +18,7 @@ const struct option long_options[] = {
     {"beta"             , required_argument},
     {"sort_edge_blocks" , no_argument},
     {"dump_edge_list"   , no_argument},
+    {"create_fileset"   , no_argument},
     {"check_graph"      , no_argument},
     {"dump_graph"       , no_argument},
     {"check_results"    , no_argument},
@@ -40,6 +41,7 @@ print_help(const char* argv0)
     LOG("\t--beta               Beta parameter for direction-optimizing BFS\n");
     LOG("\t--sort_edge_blocks   Sort edge blocks to group neighbors by home nodelet.\n");
     LOG("\t--dump_edge_list     Print the edge list to stdout after loading (slow)\n");
+    LOG("\t--create_fileset     Create a distributed fileset from the edge list\n");
     LOG("\t--check_graph        Validate the constructed graph against the edge list (slow)\n");
     LOG("\t--dump_graph         Print the graph to stdout after construction (slow)\n");
     LOG("\t--check_results      Validate the BFS results (slow)\n");
@@ -58,6 +60,7 @@ struct bfs_args
     long beta;
     bool sort_edge_blocks;
     bool dump_edge_list;
+    bool create_fileset;
     bool check_graph;
     bool dump_graph;
     bool check_results;
@@ -75,6 +78,7 @@ struct bfs_args
         args.beta = 18;
         args.sort_edge_blocks = false;
         args.dump_edge_list = false;
+        args.create_fileset = false;
         args.check_graph = false;
         args.dump_graph = false;
         args.check_results = false;
@@ -110,6 +114,8 @@ struct bfs_args
                 args.sort_edge_blocks = true;
             } else if (!strcmp(option_name, "dump_edge_list")) {
                 args.dump_edge_list = true;
+            } else if (!strcmp(option_name, "create_fileset")) {
+                args.create_fileset = true;
             } else if (!strcmp(option_name, "check_graph")) {
                 args.check_graph = true;
             } else if (!strcmp(option_name, "dump_graph")) {
@@ -162,7 +168,22 @@ int main(int argc, char ** argv)
     bfs_args args = bfs_args::parse(argc, argv);
 
     // Load edge list from file
-    auto dist_el = dist_edge_list::load(args.graph_filename);
+    dist_edge_list::handle dist_el;
+    if (args.distributed_load) {
+        // Load from fileset
+        emu::fileset files(args.graph_filename, "rb");
+        dist_el = emu::make_repl_shallow<dist_edge_list>();
+        deserialize(files, *dist_el);
+    } else {
+        // Load from local file
+        dist_el = dist_edge_list::load(args.graph_filename);
+        if (args.create_fileset) {
+            LOG("Creating fileset...\n");
+            emu::fileset files(args.graph_filename, "wb");
+            serialize(files, *dist_el);
+            exit(0);
+        }
+    }
     if (args.dump_edge_list) {
         LOG("Dumping edge list...\n");
         dist_el->dump();

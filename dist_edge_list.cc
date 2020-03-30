@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <emu_cxx_utils/for_each.h>
+#include <sstream>
 
 using namespace emu;
 
@@ -309,119 +310,20 @@ dist_edge_list::load_binary(const char* filename)
     return dist_el;
 }
 
-// FIXME
-//size_t
-//list_offset_to_file_offset(long pos, long num_edges)
-//{
-//    // Divide and round up
-//    long edges_per_nodelet = (num_edges)/ NODELETS();
-//    long edge_offset = edges_per_nodelet * (pos % NODELETS()) + (pos / NODELETS());
-//    long file_offset = sizeof(edge) * edge_offset;
-//    return file_offset;
-//}
-//
-//#define EDGE_BUFFER_SIZE ((16 * 1024 * 1024) / sizeof(edge))
-//
-//void
-//buffered_edge_list_reader(long * array, long begin, long end, va_list args)
-//{
-//    /*
-//     * We can't read directly into the distributed edge list.
-//     * Need to convert to in-memory struct-of-arrays from the file's array-of-structs.
-//     * So we read a large chunk at a time (minimize # of calls to fread).
-//     * And then unpack it into the local portion of the distributed EL
-//     */
-//    // Open the file
-//    char * filename = va_arg(args, char*);
-//    size_t file_header_len = va_arg(args, size_t);
-//    FILE * fp = mw_fopen(filename, "rb", &EL.src[begin]);
-//    if (fp == NULL) {
-//        MIGRATE(&EL.src[begin]);
-//        long nlet = NODE_ID();
-//        LOG("Error opening %s on nodelet %li\n", filename, nlet);
-//        exit(1);
-//    }
-//    // Skip past the header and jump to this threads portion of the edge list
-//    size_t offset = file_header_len + list_offset_to_file_offset(begin, EL.num_edges);
-//    int rc = fseek(fp, offset, SEEK_SET);
-//    if (rc) {
-//        MIGRATE(&EL.src[begin]);
-//        long nlet = NODE_ID();
-//        LOG("Error loading %li-th edge from nodelet %li\n", begin, nlet);
-//        exit(1);
-//    }
-//
-//    // The range (begin, end] is striped, with a stride of NODELETS
-//    // Every time we read an edge, we'll decrement this to keep track
-//    size_t num_to_read = (end - begin + NODELETS() - 1) / NODELETS();
-//    size_t buffer_size = EDGE_BUFFER_SIZE;
-//    edge buffer[buffer_size];
-//
-//    for (size_t pos = begin; num_to_read > 0;) {
-//
-//        // Fill the buffer with edges from the file
-//        size_t n = buffer_size < num_to_read ? buffer_size : num_to_read;
-//        size_t rc = mw_fread(buffer, 1, sizeof(edge) * n, fp);
-//        if (rc != n * sizeof(edge)) {
-//            LOG("Error during graph loading, expected %li but only read %li\n",
-//                n * sizeof(edge), rc);
-//            exit(1);
-//        }
-//
-//        // Copy into the edge list
-//        for (size_t i = 0; i < n; ++i) {
-//            EL.src[pos] = buffer[i].src;
-//            EL.dst[pos] = buffer[i].dst;
-//            // Next edge on this nodelet is at NODELETS stride away
-//            pos += NODELETS();
-//            num_to_read -= 1;
-//        }
-//    }
-//    // Clean up
-//    mw_fclose(fp);
-//}
-//
-//void
-//load_edge_list_distributed(const char* filename)
-//{
-//    // Open the file just to check the header
-//    LOG("Opening %s...\n", filename);
-//    FILE* fp = fopen(filename, "rb");
-//    if (fp == NULL) {
-//        LOG("Unable to open %s\n", filename);
-//        exit(1);
-//    }
-//    edge_list_file_header header;
-//    parse_edge_list_file_header(fp, &header);
-//    fclose(fp);
-//
-//    if (header.num_vertices <= 0 || header.num_edges <= 0) {
-//        LOG("Invalid graph size in header\n");
-//        exit(1);
-//    }
-//    // TODO add support for other formats
-//    if (!header.format || !!strcmp(header.format, "el64")) {
-//        LOG("Unsuppported edge list format %s\n", header.format);
-//        exit(1);
-//    }
-//    // Future implementations may be able to handle duplicates
-//    if (!header.is_deduped) {
-//        LOG("Edge list must be deduped.");
-//        exit(1);
-//    }
-//
-//
-//    init_dist_edge_list(header.num_vertices, header.num_edges);
-//    LOG("Loading %li edges into distributed edge list from all nodes...\n", EL.num_edges);
-//    hooks_region_begin("load_edge_list");
-//    emu_1d_array_apply(EL.src, EL.num_edges,
-//        // Force one thread per nodelet
-//        EL.num_edges / NODELETS(),
-//        buffered_edge_list_reader, filename, header.header_length
-//    );
-//    hooks_region_end();
-//}
+void
+serialize(emu::fileset &f, dist_edge_list& self)
+{
+    serialize(f, self.num_vertices_);
+    serialize(f, self.num_edges_);
+    serialize(f, self.src_);
+    serialize(f, self.dst_);
+}
 
-
-
-
+void
+deserialize(fileset& f, dist_edge_list& self)
+{
+    deserialize(f, self.num_vertices_);
+    deserialize(f, self.num_edges_);
+    deserialize(f, self.src_);
+    deserialize(f, self.dst_);
+}

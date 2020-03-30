@@ -4,12 +4,14 @@
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/fileset.h>
 #include "common.h"
 
 // Distributed edge list that the graph will be created from.
 // First array stores source vertex ID, second array stores dest vertex ID
 struct dist_edge_list
 {
+private:
     // Largest vertex ID + 1
     emu::repl<long> num_vertices_;
     // Length of both arrays
@@ -18,6 +20,10 @@ struct dist_edge_list
     emu::striped_array<long> src_;
     // Striped array of dest vertex ID's
     emu::striped_array<long> dst_;
+
+public:
+    // Default constructor
+    dist_edge_list() = default;
 
     // Constructor
     dist_edge_list(long num_vertices, long num_edges)
@@ -36,6 +42,9 @@ struct dist_edge_list
     {}
 
     dist_edge_list(const dist_edge_list& other) = delete;
+
+    long num_vertices() const { return num_vertices_; }
+    long num_edges() const { return num_edges_; }
 
     // Smart pointer to a replicated dist_edge_list
     using handle = std::unique_ptr<emu::repl_shallow<dist_edge_list>>;
@@ -75,4 +84,7 @@ struct dist_edge_list
     {
         forall_edges(emu::default_policy, worker);
     }
+
+    friend void serialize(emu::fileset& f, dist_edge_list& self);
+    friend void deserialize(emu::fileset& f, dist_edge_list& self);
 };

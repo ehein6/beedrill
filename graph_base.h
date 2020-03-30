@@ -339,7 +339,7 @@ create_graph_from_edge_list(dist_edge_list & dist_el)
     using namespace emu;
     LOG("Initializing distributed vertex list...\n");
     auto the_graph = emu::make_repl_shallow<Graph>(
-        dist_el.num_vertices_, dist_el.num_edges_);
+        dist_el.num_vertices(), dist_el.num_edges());
     emu::repl_shallow<Graph> *g = &*the_graph;
     // Assign vertex ID's as position in the list
     parallel::for_each(fixed,
