@@ -4,6 +4,7 @@
 #include <emu_cxx_utils/execution_policy.h>
 #include <emu_cxx_utils/for_each.h>
 #include <emu_cxx_utils/fill.h>
+#include <emu_cxx_utils/reducers.h>
 
 using namespace emu;
 using namespace emu::parallel;
@@ -31,62 +32,6 @@ pagerank::pagerank(const pagerank& other, emu::shallow_copy shallow)
 , worklist_(other.worklist_, shallow)
 {}
 
-// Performs atomic add on a double
-// Uses a CAS loop, since we don't have float atomics
-static inline void
-atomic_add_double(double* lhs, double rhs)
-{
-    // Get a pointer to the local copy
-    double new_value, old_value;
-    do {
-        // Read the value from memory
-        old_value = *lhs;
-        // Do the add
-        new_value = old_value + rhs;
-        // Do again if the old value doesn't match
-    } while (old_value != atomic_cas(lhs, old_value, new_value));
-}
-
-// Allows us to add to a replicated double with pretty syntax
-void
-operator+=(emu::repl<double>& lhs, double rhs)
-{
-    atomic_add_double(&lhs, rhs);
-}
-
-class my_reducer
-{
-private:
-    double local_sum_;
-    double& global_sum_;
-public:
-    // Contructor: capture ref to global sum and init local sum to zero
-    explicit my_reducer(double & global_sum)
-    : local_sum_(0)
-    , global_sum_(global_sum)
-    {}
-
-    // Copy constructor: propagate ref to global sum but init local sum to zero
-    my_reducer(const my_reducer& other)
-    : local_sum_(0)
-    , global_sum_(other.global_sum_)
-    {}
-
-    // Operator: add to local sum
-    my_reducer&
-    operator+=(double rhs)
-    {
-        local_sum_ += rhs;
-        return *this;
-    }
-
-    // Destructor: add to global sum
-    ~my_reducer()
-    {
-        atomic_add_double(&global_sum_, local_sum_);
-    }
-};
-
 int
 pagerank::run (int max_iters, double damping, double epsilon)
 {
@@ -98,7 +43,6 @@ pagerank::run (int max_iters, double damping, double epsilon)
     damping_ = damping;
     int iter;
     for (iter = 0; iter < max_iters; ++iter) {
-        error_ = 0;
         worklist_.clear_all();
         g_->for_each_vertex(fixed, [this](long v) {
             // Initialize incoming contribution to zero
@@ -106,9 +50,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             // Compute outgoing contribution as score over degree
             auto degree = g_->out_degree(v);
             if (degree > 0) { contrib_[v] = scores_[v] / degree; }
-        });
-        // Append all edges to the work list
-        g_->for_each_vertex(fixed, [this](long v) {
+            // Append all edges to the work list
             auto begin = g_->out_edges_begin(v);
             auto end = g_->out_edges_end(v);
             worklist_.append(v, begin, end);
@@ -118,7 +60,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             [contrib=contrib_.data(),incoming=incoming_.data()]
             (long src, graph::edge_iterator e1, graph::edge_iterator e2) {
                 // Sum incoming contribution from all my neighbors
-                my_reducer accum(incoming[src]);
+                reducer_opadd<double> accum(&incoming[src]);
                 for_each(unroll, e1, e2,
                     // Note: capture accum by value, use mutable lambda
                     [accum, contrib] (long dst) mutable {
@@ -128,7 +70,9 @@ pagerank::run (int max_iters, double damping, double epsilon)
             }
         );
 
-        g_->for_each_vertex(fixed, [this](long src) {
+        error_ = 0;
+        reducer_opadd<double> error(&error_);
+        g_->for_each_vertex(fixed, [this, error](long src) mutable {
             // Update my score, combining old score and new
             double old_score = scores_[src];
             scores_[src] = base_score_ + damping_ * incoming_[src];
@@ -137,7 +81,7 @@ pagerank::run (int max_iters, double damping, double epsilon)
             // Avoid calling fabs, we know there's no NaN here
             if (diff < 0) { diff = -diff; }
             // Uses our special operator overload
-            error_ += diff;
+            error += diff;
         });
         double err = repl_reduce(error_, std::plus<>());
         if (err < epsilon)
