@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cilk/cilk.h>
 #include <emu_c_utils/emu_c_utils.h>
+#include <emu_cxx_utils/reducers.h>
 
 using namespace emu;
 using namespace emu::parallel;
@@ -27,49 +28,6 @@ triangle_count::clear()
 {
     num_triangles_ = 0;
     num_twopaths_ = 0;
-}
-
-/**
- * Given two vertices u and v, how many neighbors do they share?
- * We computes the size of the intersection of the two edge lists.
- *
- * Assumptions:
- * - Both edge lists are sorted in ascending order
- * - All neighbors of v are less than u.
- *
- * Uses an unrolled loop to minimize the number of thread migrations.
- *
- * @param vw Pointer to start of v's edge list
- * @param vw_end Pointer past the end of v's edge list.
- * @param uw Pointer to start of u's edge list
- * @return Number of neighbors that u and v have in common
- */
-noinline long
-intersection(
-    graph::edge_iterator vw, graph::edge_iterator vw_end,
-    graph::edge_iterator uw)
-{
-    long count = 0;
-    // Handle one at a time until the number of edges is divisible by 4
-    while ((vw_end - vw) % 4 != 0) {
-        while (*uw < *vw) { ++uw; } if (*vw++ == *uw) { ++count; }
-    }
-
-    for (long w1, w2, w3, w4; vw < vw_end;) {
-        // Pick up four neighbors of v
-        w1 = *vw++;
-        w2 = *vw++;
-        w3 = *vw++;
-        w4 = *vw++;
-        // Now we have u->v and v->w
-        // Scan through neighbors of u, looking for w
-        while (*uw < w1) { ++uw; } if (w1 == *uw) { ++count; }
-        while (*uw < w2) { ++uw; } if (w2 == *uw) { ++count; }
-        while (*uw < w3) { ++uw; } if (w3 == *uw) { ++count; }
-        while (*uw < w4) { ++uw; } if (w4 == *uw) { ++count; }
-        RESIZE();
-    }
-    return count;
 }
 
 triangle_count::stats
@@ -97,10 +55,13 @@ triangle_count::run()
         // Record each u->v->w as a two-path
         remote_add(&num_twopaths_, std::distance(vw_begin, vw_end));
         // Iterator over edges of u
-        auto uw_begin = g_->out_edges_begin(u);
+        auto uw = g_->out_edges_begin(u);
+        // Reducer for counting up the number of triangles
+        reducer_opadd<long> count(&num_triangles_);
         // Count number of neighbors that u and v have in common
-        remote_add(&num_triangles_,
-            intersection(vw_begin, vw_end, uw_begin));
+        for_each(unroll, vw_begin, vw_end, [uw, count](long w) mutable {
+            while (*uw < w) { ++uw; } if (w == *uw) { ++count; }
+        });
     });
     // Reduce number of triangles and number of two-paths and return
     stats s;
