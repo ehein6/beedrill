@@ -380,9 +380,20 @@ public:
 template<typename T, typename F>
 T repl_reduce(repl<T>& ref, F reduce)
 {
-    T value{};
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
+    T value = ref.get_nth(0);
+    for (long nlet = 1; nlet < NODELETS(); ++nlet) {
         value = reduce(value, ref.get_nth(nlet));
+    }
+    return value;
+}
+
+template<typename T, typename F>
+T repl_reduce(T& ref, F reduce)
+{
+    assert(emu::pmanip::is_repl(&ref));
+    T value = emu::pmanip::get_nth(&ref, 0);
+    for (long nlet = 1; nlet < NODELETS(); ++nlet) {
+        value = reduce(value, emu::pmanip::get_nth(&ref, nlet));
     }
     return value;
 }
