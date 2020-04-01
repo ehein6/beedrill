@@ -71,20 +71,28 @@ remote_add(T * volatile * ptr, ptrdiff_t value)
     value *= sizeof(T);
     REMOTE_ADD((volatile long*)ptr, (long)value);
 }
-// Remote bitwise ops don't make sense on pointer
-// TODO overloads for unsigned long
+// Remote bitwise ops only make sense for unsigned types
+// The memoryweb definitions take signed type, so we need to case
 inline void
-remote_and(volatile long * ptr, long value) {
-    return REMOTE_AND(ptr, value);
+remote_and(volatile unsigned long * ptr, unsigned long value) {
+    return REMOTE_AND(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value));
 }
 inline void
-remote_or(volatile long * ptr, long value) {
-    return REMOTE_OR(ptr, value);
+remote_or(volatile unsigned long * ptr, long value) {
+    return REMOTE_OR(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value));
 }
 inline void
-remote_xor(volatile long * ptr, long value) {
-    return REMOTE_XOR(ptr, value);
+remote_xor(volatile unsigned long * ptr, long value) {
+    return REMOTE_XOR(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value));
 }
+
+// Remote min/max can work on signed or unsigned
 inline void
 remote_max(volatile long * ptr, long value) {
     return REMOTE_MAX(ptr, value);
@@ -92,6 +100,18 @@ remote_max(volatile long * ptr, long value) {
 inline void
 remote_min(volatile long * ptr, long value) {
     return REMOTE_MIN(ptr, value);
+}
+inline void
+remote_max(volatile unsigned long * ptr, unsigned long value) {
+    return REMOTE_MAX(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value));
+}
+inline void
+remote_min(volatile unsigned long * ptr, unsigned long value) {
+    return REMOTE_MIN(
+        reinterpret_cast<volatile long*>(ptr),
+        static_cast<long>(value));
 }
 
 //TODO implement all remotes/atomics

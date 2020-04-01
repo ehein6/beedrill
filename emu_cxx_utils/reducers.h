@@ -114,4 +114,106 @@ public:
     }
 };
 
+struct op_and
+{
+    using value_type = uint64_t;
+    static uint64_t identity() { return 0xFFFFFFFFUL; }
+    static void
+    reduce(uint64_t *lhs, uint64_t rhs) { emu::remote_and(lhs, rhs); }
+    static uint64_t
+    reduce(uint64_t &lhs, uint64_t &rhs) { return lhs & rhs; }
+};
+
+class reducer_opand : public reducer_base<op_and>
+{
+public:
+using reducer_base<op_and>::reducer_base;
+using self_type = reducer_opand;
+void operator&=(T& rhs) {
+    this->local_sum_ &= rhs;
+}
+};
+
+struct op_or
+{
+    using value_type = uint64_t;
+    static uint64_t identity() { return 0; }
+    static void
+    reduce(uint64_t *lhs, uint64_t rhs) { emu::remote_or(lhs, rhs); }
+    static uint64_t
+    reduce(uint64_t &lhs, uint64_t &rhs) { return lhs | rhs; }
+};
+
+class reducer_opor : public reducer_base<op_or>
+{
+public:
+    using reducer_base<op_or>::reducer_base;
+    using self_type = reducer_opor;
+    void operator|=(T& rhs) {
+        this->local_sum_ |= rhs;
+    }
+};
+
+struct op_xor
+{
+    using value_type = uint64_t;
+    static uint64_t identity() { return 0; }
+    static void
+    reduce(uint64_t *lhs, uint64_t rhs) { emu::remote_xor(lhs, rhs); }
+    static uint64_t
+    reduce(uint64_t &lhs, uint64_t &rhs) { return lhs ^ rhs; }
+};
+
+class reducer_opxor : public reducer_base<op_xor>
+{
+public:
+    using reducer_base<op_xor>::reducer_base;
+    using self_type = reducer_opxor;
+    void operator^=(T& rhs) {
+        this->local_sum_ ^= rhs;
+    }
+};
+
+template<class T>
+struct op_max
+{
+    using value_type = T;
+    static T identity() { return std::numeric_limits<T>::lowest(); }
+    static void reduce(T *lhs, T rhs) { emu::remote_max(lhs, rhs); }
+    static T reduce(T &lhs, T &rhs) { return std::max(lhs, rhs); }
+};
+
+template<class T>
+class reducer_opmax : public reducer_base<op_max<T>>
+{
+public:
+    using reducer_base<op_add<T>>::reducer_base;
+    using self_type = reducer_opmax;
+
+    void calc_max(T& rhs) {
+        this->local_sum_ = std::max(this->local_sum_, rhs);
+    }
+};
+
+template<class T>
+struct op_min
+{
+    using value_type = T;
+    static T identity() { return std::numeric_limits<T>::max(); }
+    static void reduce(T *lhs, T rhs) { emu::remote_min(lhs, rhs); }
+    static T reduce(T &lhs, T &rhs) { return std::min(lhs, rhs); }
+};
+
+template<class T>
+class reducer_opmin : public reducer_base<op_min<T>>
+{
+public:
+    using reducer_base<op_add<T>>::reducer_base;
+    using self_type = reducer_opmin;
+
+    void calc_min(T& rhs) {
+        this->local_sum_ = std::min(this->local_sum_, rhs);
+    }
+};
+
 } // end namespace emu
