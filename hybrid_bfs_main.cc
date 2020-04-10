@@ -5,6 +5,7 @@
 #include "dist_edge_list.h"
 #include "hybrid_bfs.h"
 #include "lcg.h"
+#include <emu_cxx_utils/fileset.h>
 #include "git_sha1.h"
 
 const struct option long_options[] = {
@@ -171,16 +172,28 @@ int main(int argc, char ** argv)
     dist_edge_list::handle dist_el;
     if (args.distributed_load) {
         // Load from fileset
+        LOG("Reading edge list from fileset %s with %li nodelets...\n",
+            args.graph_filename, NODELETS());
         emu::fileset files(args.graph_filename, "rb");
         dist_el = emu::make_repl_shallow<dist_edge_list>();
+        hooks_region_begin("load_edge_list_distributed");
         deserialize(files, *dist_el);
+        hooks_set_attr_i64("num_edges", dist_el->num_edges());
+        hooks_set_attr_i64("num_vertices", dist_el->num_vertices());
+        auto load_time_ms = hooks_region_end();
+        LOG("Loaded %li edges in %3.2f ms, %3.2f MB/s\n",
+            dist_el->num_edges(),
+            load_time_ms,
+            (1e-6 * dist_el->num_edges()) / (1e-3 * load_time_ms));
     } else {
         // Load from local file
         dist_el = dist_edge_list::load(args.graph_filename);
+        // Optional, create fileset and quit
         if (args.create_fileset) {
             LOG("Creating fileset...\n");
             emu::fileset files(args.graph_filename, "wb");
             serialize(files, *dist_el);
+            LOG("Done, exiting.\n");
             exit(0);
         }
     }

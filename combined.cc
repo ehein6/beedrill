@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <numeric>
 
+#include <emu_cxx_utils/fileset.h>
 #include "graph.h"
 #include "dist_edge_list.h"
 #include "hybrid_bfs.h"
@@ -15,6 +16,7 @@
 
 const struct option long_options[] = {
     {"graph_filename"   , required_argument},
+    {"distributed_load" , no_argument},
     {"num_trials"       , required_argument},
     {"dump_edge_list"   , no_argument},
     {"check_graph"      , no_argument},
@@ -30,6 +32,7 @@ print_help(const char* argv0)
 {
     LOG( "Usage: %s [OPTIONS]\n", argv0);
     LOG("\t--graph_filename     Path to graph file to load\n");
+    LOG("\t--distributed_load   Load the graph from all nodes at once (File must exist on all nodes, use absolute path).\n");
     LOG("\t--num_trials         Run each algorithm this many times.\n");
     LOG("\t--source_vertex      Use this as the source vertex. If unspecified, pick random vertices.\n");
     LOG("\t--dump_edge_list     Print the edge list to stdout after loading (slow)\n");
@@ -43,6 +46,7 @@ print_help(const char* argv0)
 struct arguments
 {
     const char* graph_filename;
+    bool distributed_load;
     long num_trials;
     bool dump_edge_list;
     bool check_graph;
@@ -54,6 +58,7 @@ struct arguments
     {
         arguments args = {};
         args.graph_filename = NULL;
+        args.distributed_load = false;
         args.num_trials = 10;
         args.dump_edge_list = false;
         args.check_graph = false;
@@ -75,6 +80,8 @@ struct arguments
 
             if (!strcmp(option_name, "graph_filename")) {
                 args.graph_filename = optarg;
+            } else if (!strcmp(option_name, "distributed_load")) {
+                args.distributed_load = true;
             } else if (!strcmp(option_name, "num_trials")) {
                 args.num_trials = atol(optarg);
             } else if (!strcmp(option_name, "dump_edge_list")) {
@@ -168,7 +175,26 @@ int main(int argc, char ** argv)
     arguments args = arguments::parse(argc, argv);
 
     // Load edge list from file
-    auto dist_el = dist_edge_list::load(args.graph_filename);
+    dist_edge_list::handle dist_el;
+    if (args.distributed_load) {
+        // Load from fileset
+        LOG("Reading edge list from fileset %s with %li nodelets...\n",
+            args.graph_filename, NODELETS());
+        emu::fileset files(args.graph_filename, "rb");
+        dist_el = emu::make_repl_shallow<dist_edge_list>();
+        hooks_region_begin("load_edge_list_distributed");
+        deserialize(files, *dist_el);
+        hooks_set_attr_i64("num_edges", dist_el->num_edges());
+        hooks_set_attr_i64("num_vertices", dist_el->num_vertices());
+        auto load_time_ms = hooks_region_end();
+        LOG("Loaded %li edges in %3.2f ms, %3.2f MB/s\n",
+            dist_el->num_edges(),
+            load_time_ms,
+            (1e-6 * dist_el->num_edges()) / (1e-3 * load_time_ms));
+    } else {
+        // Load from local file
+        dist_el = dist_edge_list::load(args.graph_filename);
+    }
     if (args.dump_edge_list) {
         LOG("Dumping edge list...\n");
         dist_el->dump();
