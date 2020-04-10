@@ -266,6 +266,12 @@ public:
         return *pmanip::get_nth(&val, n);
     }
 
+    T& get_nth(long n) const
+    {
+        assert(n < NODELETS());
+        return *pmanip::get_nth(&val, n);
+    }
+
     // Default constructor
     repl<T>() = default;
 
