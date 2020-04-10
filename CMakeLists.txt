@@ -3,6 +3,15 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 project(Beedrill C CXX)
 enable_testing()
 
+# Grab the current git revision
+include(GetGitRevisionDescription)
+get_git_head_revision(GIT_REFSPEC GIT_SHA1)
+git_describe(GIT_TAG)
+git_local_changes(GIT_DIRTY)
+if (${GIT_DIRTY} STREQUAL "DIRTY")
+    set(GIT_TAG "${GIT_TAG}-dirty")
+endif()
+
 # Use the 2011/2017 standards for C and C++
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
@@ -53,6 +62,11 @@ set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale12")
 # Add current path to include list so emu_cxx_utils headers can be included
 include_directories(.)
 
+# Create a file in the build directory which has the current Git hash
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/git_sha1.cc.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+                @ONLY)
+
 # Create single lib for all algorithms and graph construction routines
 add_library(beedrill STATIC
     graph.cc
@@ -63,6 +77,8 @@ add_library(beedrill STATIC
     pagerank.cc
     ktruss_graph.cc
     ktruss.cc
+    # Include git hash
+    ${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc
 )
 link_libraries(beedrill)
 

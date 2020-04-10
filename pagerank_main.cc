@@ -3,6 +3,7 @@
 #include "graph.h"
 #include "dist_edge_list.h"
 #include "pagerank.h"
+#include "git_sha1.h"
 
 const struct option long_options[] = {
     {"graph_filename"   , required_argument},
@@ -16,6 +17,7 @@ const struct option long_options[] = {
     {"check_graph"      , no_argument},
     {"dump_graph"       , no_argument},
     {"check_results"    , no_argument},
+    {"version"          , no_argument},
     {"help"             , no_argument},
     {nullptr}
 };
@@ -35,6 +37,7 @@ print_help(const char* argv0)
     LOG("\t--check_graph        Validate the constructed graph against the edge list (slow)\n");
     LOG("\t--dump_graph         Print the graph to stdout after construction (slow)\n");
     LOG("\t--check_results      Validate the BFS results (slow)\n");
+    LOG("\t--version            Print git version info\n");
     LOG("\t--help               Print command line help\n");
 }
 
@@ -92,6 +95,9 @@ struct pagerank_args
                 args.dump_graph = true;
             } else if (!strcmp(option_name, "check_results")) {
                 args.check_results = true;
+            } else if (!strcmp(option_name, "version")) {
+                LOG("%s\n", g_GIT_TAG);
+                exit(0);
             } else if (!strcmp(option_name, "help")) {
                 print_help(argv[0]);
                 exit(1);
@@ -117,6 +123,7 @@ int main(int argc, char ** argv)
     } else {
         hooks_set_active_region("pagerank");
     }
+    hooks_set_attr_str("git_tag", g_GIT_TAG);
 
     // Parse command-line arguments
     auto args = pagerank_args::parse(argc, argv);

@@ -5,6 +5,7 @@
 #include "graph.h"
 #include "dist_edge_list.h"
 #include "components.h"
+#include "git_sha1.h"
 
 const struct option long_options[] = {
     {"graph_filename"   , required_argument},
@@ -31,6 +32,7 @@ print_help(const char* argv0)
     LOG("\t--dump_graph         Print the graph to stdout after construction (slow)\n");
     LOG("\t--check_results      Validate the results (slow)\n");
     LOG("\t--dump_results       Print the results to stdout (slow)\n");
+    LOG("\t--version            Print git version info\n");
     LOG("\t--help               Print command line help\n");
 }
 
@@ -87,6 +89,9 @@ struct components_args
                 args.check_results = true;
             } else if (!strcmp(option_name, "dump_results")) {
                 args.dump_results = true;
+            } else if (!strcmp(option_name, "version")) {
+                LOG("%s\n", g_GIT_TAG);
+                exit(0);
             } else if (!strcmp(option_name, "help")) {
                 print_help(argv[0]);
                 exit(1);
@@ -109,6 +114,7 @@ int main(int argc, char ** argv)
     } else {
         hooks_set_active_region("components");
     }
+    hooks_set_attr_str("git_tag", g_GIT_TAG);
 
     // Parse command-line arguments
     components_args args = components_args::parse(argc, argv);
