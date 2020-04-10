@@ -111,10 +111,8 @@ public:
 
     void resize(long new_size)
     {
-        if (new_size <= n_) {
-            // We already have enough elements, just change the size
-            n_ = new_size;
-        } else {
+        // Do we need to reallocate?
+        if (new_size > n_) {
             // Allocate new array
             auto new_ptr = allocate(new_size);
             if (ptr_) {
@@ -126,6 +124,8 @@ public:
             // Save new pointer
             ptr_ = new_ptr;
         }
+        // Update size
+        n_ = new_size;
     }
 };
 
