@@ -48,27 +48,27 @@ function(add_emusim_test name command)
     endif()
 endfunction()
 
-# Build graph library
-include_directories(.)
-add_library(graph STATIC
-    graph.h
-    graph.cc
-    dist_edge_list.h
-    dist_edge_list.cc
-)
-link_libraries(graph)
-
-# Breadth-first search
-
-add_executable(hybrid_bfs
-    hybrid_bfs.h
-    hybrid_bfs.cc
-    hybrid_bfs_main.cc
-)
-install(TARGETS hybrid_bfs RUNTIME DESTINATION ".")
-
 set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale12")
 
+# Add current path to include list so emu_cxx_utils headers can be included
+include_directories(.)
+
+# Create single lib for all algorithms and graph construction routines
+add_library(beedrill STATIC
+    graph.cc
+    dist_edge_list.cc
+    hybrid_bfs.cc
+    components.cc
+    tc.cc
+    pagerank.cc
+    ktruss_graph.cc
+    ktruss.cc
+)
+link_libraries(beedrill)
+
+# Breadth-first search
+add_executable(hybrid_bfs hybrid_bfs_main.cc)
+install(TARGETS hybrid_bfs RUNTIME DESTINATION ".")
 add_emusim_test( "build_graph"
     hybrid_bfs.mwx --graph ${TEST_GRAPH} --check_graph --alg none
 )
@@ -83,63 +83,33 @@ add_emusim_test( "bfs_beamer_hybrid"
 )
 
 # Connected Components
-
-add_executable(components
-    components.h
-    components.cc
-    components_main.cc
-)
+add_executable(components components_main.cc)
 install(TARGETS components RUNTIME DESTINATION ".")
-
 add_emusim_test( "components"
     components.mwx --graph ${TEST_GRAPH} --check_results
 )
 
 # K-truss
-add_executable(ktruss
-    ktruss.h
-    ktruss.cc
-    ktruss_graph.h
-    ktruss_graph.cc
-    ktruss_main.cc
-)
+add_executable(ktruss ktruss_main.cc)
 install(TARGETS ktruss RUNTIME DESTINATION ".")
-
 add_emusim_test( "ktruss"
     ktruss.mwx --graph ${TEST_GRAPH} --check_results
 )
 
 # Triangle Count
-
-add_executable(triangle_count
-   tc.h
-   tc.cc
-   tc_main.cc
-)
+add_executable(triangle_count tc_main.cc)
 install(TARGETS triangle_count RUNTIME DESTINATION ".")
-
 add_emusim_test( "triangle_count"
     triangle_count.mwx --graph ${TEST_GRAPH} --check_results
 )
 
 # PageRank
-
-add_executable(pagerank
-   pagerank.h
-   pagerank.cc
-   pagerank_main.cc
-)
+add_executable(pagerank pagerank_main.cc)
 install(TARGETS pagerank RUNTIME DESTINATION ".")
-
 add_emusim_test( "pagerank"
     pagerank.mwx --graph ${TEST_GRAPH} --check_results
 )
 
-add_executable(combined
-    combined.cc
-    hybrid_bfs.cc hybrid_bfs.h
-    components.cc components.h
-    pagerank.cc pagerank.h
-    tc.cc tc.h
-)
+# Single binary that can run (almost) all algorithms at once
+add_executable(combined combined.cc)
 install(TARGETS combined RUNTIME DESTINATION ".")
