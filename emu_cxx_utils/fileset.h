@@ -6,6 +6,7 @@
 #include "striped_array.h"
 #include "replicated.h"
 #include "repl_array.h"
+#include "for_each.h"
 
 // Logging macro. Flush right away since Emu hardware usually doesn't
 #ifndef LOG
@@ -127,6 +128,7 @@ void serialize(fileset& f, striped_array<T>& array)
 
             // Save the size of the array to all slices
             long length = array.size();
+            //LOG("nlet[%li]: Writing length = %li\n", nlet, length);
             mw_fwrite(&length, sizeof(long), 1, fp);
 
             // Get a pointer to the local stripe
@@ -134,6 +136,7 @@ void serialize(fileset& f, striped_array<T>& array)
             // Compute length of local stripe
             size_t stripe_len = array.size() / num_nlets;
             if (nlet < array.size() % num_nlets) { stripe_len += 1; }
+            //LOG("nlet[%li]: Writing %li items\n", nlet, stripe_len);
             // Write the stripe to the file
             size_t n = mw_fwrite(stripe, sizeof(T), stripe_len, fp);
             if (n != stripe_len) {
@@ -156,7 +159,7 @@ void deserialize(fileset& f, striped_array<T>& array)
     auto length = emu::make_repl<long>();
     deserialize(f, *length);
 
-    LOG("Array length is %li\n", length->get());
+    //LOG("Array length is %li\n", length->get());
     // Resize array
     array.resize(*length);
 
@@ -173,6 +176,7 @@ void deserialize(fileset& f, striped_array<T>& array)
             // Compute length of local stripe
             size_t stripe_len = array.size() / num_nlets;
             if (nlet < array.size() % num_nlets) { stripe_len += 1; }
+            //LOG("nlet[%li]: Reading %li items\n", nlet, stripe_len);
             // Read the stripe from the file
             size_t n = mw_fread(stripe, sizeof(T), stripe_len, fp);
             if (n != stripe_len) {
@@ -183,13 +187,6 @@ void deserialize(fileset& f, striped_array<T>& array)
         }
     );
 }
-
-// But I'm losing my edge
-// to better-looking people
-// with better ideas
-// and more talent
-// and they were actually really...
-// really really nice
 
 // Serialize a repl_array<T> to a fileset
 template<class T>
