@@ -4,8 +4,10 @@
 #include <emu_cxx_utils/striped_array.h>
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/for_each.h>
-#include <emu_cxx_utils/fileset.h>
 #include "common.h"
+
+// Forward reference
+namespace emu { class fileset; }
 
 // Distributed edge list that the graph will be created from.
 // First array stores source vertex ID, second array stores dest vertex ID

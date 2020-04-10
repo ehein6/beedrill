@@ -5,8 +5,9 @@
 #include <cstring>
 #include <vector>
 #include <string>
-#include <emu_cxx_utils/for_each.h>
 #include <sstream>
+#include <emu_cxx_utils/for_each.h>
+#include <emu_cxx_utils/fileset.h>
 
 using namespace emu;
 
