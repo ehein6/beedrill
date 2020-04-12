@@ -15,3 +15,4 @@ endif()
 
 add_executable(rmat_dataset_dump rmat_dataset_dump.cc)
 add_executable(convert convert.cc)
+add_executable(create_fileset create_fileset.cc ../edge_list.cc)

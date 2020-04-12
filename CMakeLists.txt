@@ -70,6 +70,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/git_sha1.cc.in"
 # Create single lib for all algorithms and graph construction routines
 add_library(beedrill STATIC
     graph.cc
+    edge_list.cc
     dist_edge_list.cc
     hybrid_bfs.cc
     components.cc

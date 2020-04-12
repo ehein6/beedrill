@@ -5,6 +5,7 @@
 #include <emu_cxx_utils/replicated.h>
 #include <emu_cxx_utils/for_each.h>
 #include "common.h"
+#include "edge_list.h"
 
 // Forward reference
 namespace emu { class fileset; }
