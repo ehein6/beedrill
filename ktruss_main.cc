@@ -1,7 +1,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <limits.h>
-#include <emu_cxx_utils/fileset.h>
 
 #include "graph.h"
 #include "dist_edge_list.h"
@@ -124,25 +123,19 @@ int main(int argc, char ** argv)
 
     // Load edge list from file
     dist_edge_list::handle dist_el;
+    hooks_region_begin("load_edge_list");
     if (args.distributed_load) {
-        // Load from fileset
-        LOG("Reading edge list from fileset %s with %li nodelets...\n",
-            args.graph_filename, NODELETS());
-        emu::fileset files(args.graph_filename, "rb");
-        dist_el = emu::make_repl_shallow<dist_edge_list>();
-        hooks_region_begin("load_edge_list_distributed");
-        deserialize(files, *dist_el);
-        hooks_set_attr_i64("num_edges", dist_el->num_edges());
-        hooks_set_attr_i64("num_vertices", dist_el->num_vertices());
-        auto load_time_ms = hooks_region_end();
-        LOG("Loaded %li edges in %3.2f ms, %3.2f MB/s\n",
-            dist_el->num_edges(),
-            load_time_ms,
-            (1e-6 * dist_el->num_edges()) / (1e-3 * load_time_ms));
+        dist_el = dist_edge_list::load_distributed(args.graph_filename);
     } else {
-        // Load from local file
-        dist_el = dist_edge_list::load(args.graph_filename);
+        dist_el = dist_edge_list::load_binary(args.graph_filename);
     }
+    hooks_set_attr_i64("num_edges", dist_el->num_edges());
+    hooks_set_attr_i64("num_vertices", dist_el->num_vertices());
+    auto load_time_ms = hooks_region_end();
+    LOG("Loaded %li edges in %3.2f ms, %3.2f MB/s\n",
+        dist_el->num_edges(),
+        load_time_ms,
+        (1e-6 * dist_el->num_edges() * sizeof(edge)) / (1e-3 * load_time_ms));
     if (args.dump_edge_list) {
         LOG("Dumping edge list...\n");
         dist_el->dump();

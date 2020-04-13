@@ -5,7 +5,6 @@
 #include "dist_edge_list.h"
 #include "hybrid_bfs.h"
 #include "lcg.h"
-#include <emu_cxx_utils/fileset.h>
 #include "git_sha1.h"
 
 const struct option long_options[] = {
@@ -19,7 +18,6 @@ const struct option long_options[] = {
     {"beta"             , required_argument},
     {"sort_edge_blocks" , no_argument},
     {"dump_edge_list"   , no_argument},
-    {"create_fileset"   , no_argument},
     {"check_graph"      , no_argument},
     {"dump_graph"       , no_argument},
     {"check_results"    , no_argument},
@@ -42,7 +40,6 @@ print_help(const char* argv0)
     LOG("\t--beta               Beta parameter for direction-optimizing BFS\n");
     LOG("\t--sort_edge_blocks   Sort edge blocks to group neighbors by home nodelet.\n");
     LOG("\t--dump_edge_list     Print the edge list to stdout after loading (slow)\n");
-    LOG("\t--create_fileset     Create a distributed fileset from the edge list\n");
     LOG("\t--check_graph        Validate the constructed graph against the edge list (slow)\n");
     LOG("\t--dump_graph         Print the graph to stdout after construction (slow)\n");
     LOG("\t--check_results      Validate the BFS results (slow)\n");
@@ -61,7 +58,6 @@ struct bfs_args
     long beta;
     bool sort_edge_blocks;
     bool dump_edge_list;
-    bool create_fileset;
     bool check_graph;
     bool dump_graph;
     bool check_results;
@@ -79,7 +75,6 @@ struct bfs_args
         args.beta = 18;
         args.sort_edge_blocks = false;
         args.dump_edge_list = false;
-        args.create_fileset = false;
         args.check_graph = false;
         args.dump_graph = false;
         args.check_results = false;
@@ -115,8 +110,6 @@ struct bfs_args
                 args.sort_edge_blocks = true;
             } else if (!strcmp(option_name, "dump_edge_list")) {
                 args.dump_edge_list = true;
-            } else if (!strcmp(option_name, "create_fileset")) {
-                args.create_fileset = true;
             } else if (!strcmp(option_name, "check_graph")) {
                 args.check_graph = true;
             } else if (!strcmp(option_name, "dump_graph")) {
@@ -170,33 +163,19 @@ int main(int argc, char ** argv)
 
     // Load edge list from file
     dist_edge_list::handle dist_el;
+    hooks_region_begin("load_edge_list");
     if (args.distributed_load) {
-        // Load from fileset
-        LOG("Reading edge list from fileset %s with %li nodelets...\n",
-            args.graph_filename, NODELETS());
-        emu::fileset files(args.graph_filename, "rb");
-        dist_el = emu::make_repl_shallow<dist_edge_list>();
-        hooks_region_begin("load_edge_list_distributed");
-        deserialize(files, *dist_el);
-        hooks_set_attr_i64("num_edges", dist_el->num_edges());
-        hooks_set_attr_i64("num_vertices", dist_el->num_vertices());
-        auto load_time_ms = hooks_region_end();
-        LOG("Loaded %li edges in %3.2f ms, %3.2f MB/s\n",
-            dist_el->num_edges(),
-            load_time_ms,
-            (1e-6 * dist_el->num_edges()) / (1e-3 * load_time_ms));
+        dist_el = dist_edge_list::load_distributed(args.graph_filename);
     } else {
-        // Load from local file
-        dist_el = dist_edge_list::load(args.graph_filename);
-        // Optional, create fileset and quit
-        if (args.create_fileset) {
-            LOG("Creating fileset...\n");
-            emu::fileset files(args.graph_filename, "wb");
-            serialize(files, *dist_el);
-            LOG("Done, exiting.\n");
-            exit(0);
-        }
+        dist_el = dist_edge_list::load_binary(args.graph_filename);
     }
+    hooks_set_attr_i64("num_edges", dist_el->num_edges());
+    hooks_set_attr_i64("num_vertices", dist_el->num_vertices());
+    auto load_time_ms = hooks_region_end();
+    LOG("Loaded %li edges in %3.2f ms, %3.2f MB/s\n",
+        dist_el->num_edges(),
+        load_time_ms,
+        (1e-6 * dist_el->num_edges() * sizeof(edge)) / (1e-3 * load_time_ms));
     if (args.dump_edge_list) {
         LOG("Dumping edge list...\n");
         dist_el->dump();

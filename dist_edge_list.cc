@@ -35,9 +35,15 @@ has_suffix (std::string const &str, std::string const &suffix)
 }
 
 dist_edge_list::handle
-dist_edge_list::load(const char* filename)
+dist_edge_list::load_distributed(const char* filename)
 {
-    return load_binary(filename);
+    // Load from fileset
+    LOG("Reading edge list from fileset %s with %li nodelets...\n",
+        filename, NODELETS());
+    emu::fileset files(filename, "rb");
+    auto dist_el = emu::make_repl_shallow<dist_edge_list>();
+    deserialize(files, *dist_el);
+    return dist_el;
 }
 
 // Initializes the distributed edge list EL from the file
@@ -129,7 +135,6 @@ dist_edge_list::load_binary(const char* filename)
         std::swap(file_buffer, scatter_buffer);
     }
     LOG("\n");
-    hooks_region_end();
 
     // Close file handle
     fclose(fp);
