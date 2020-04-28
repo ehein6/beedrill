@@ -154,12 +154,13 @@ public:
     template<class Function>
     void forall_items(Function worker)
     {
+        auto par_1 = emu::parallel_policy<1>();
         // First, spawn a thread on each nodelet to handle the local queue
-        emu::repl_for_each(emu::parallel_policy<1>(), *this,
+        emu::repl_for_each(par_1, *this,
             [&](sliding_queue& queue){
-                // Spawn threads to dynamically pull items off of this queue
+                // Spawn a thread for each vertex in the queue
                 emu::parallel::for_each(
-                    emu::dyn,
+                    par_1,
                     queue.begin(), queue.end(), worker
                 );
             }

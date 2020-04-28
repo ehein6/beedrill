@@ -74,13 +74,8 @@ hybrid_bfs::top_down_step_with_migrating_threads()
     // Spawn a thread on each nodelet to process the local queue
     // For each neighbor without a parent, add self as parent and append to queue
     scout_count_ = 0;
-    worklist_.clear_all();
     queue_.forall_items([this](long src) {
-        worklist_.append(src, g_->out_edges_begin(src), g_->out_edges_end(src));
-    });
-
-    worklist_.process_all_edges(dynamic_unroll_policy<64>(),
-        [this](long src, long dst) {
+        g_->for_each_out_edge(parallel_unroll_policy<64>(), src, [this, src](long dst) {
             // Look up the parent of the vertex we are visiting
             long * parent = &parent_[dst];
             long curr_val = *parent;
@@ -93,8 +88,8 @@ hybrid_bfs::top_down_step_with_migrating_threads()
                     remote_add(&scout_count_, -curr_val);
                 }
             }
-        }
-    );
+        });
+    });
     // Combine per-nodelet values of scout_count
     return repl_reduce(scout_count_, std::plus<>());
 }
@@ -114,7 +109,7 @@ hybrid_bfs::bottom_up_step()
     awake_count_ = 0;
 
     // For all vertices without a parent...
-    g_->for_each_vertex(fixed, [this](long child) {
+    g_->for_each_vertex(par, [this](long child) {
         if (parent_[child] >= 0) { return; }
         // Look for neighbors who are in the frontier
         g_->find_out_edge_if(unroll, child, [this, child](long parent) {
@@ -129,7 +124,7 @@ hybrid_bfs::bottom_up_step()
     });
 
     // Add to the queue all vertices that didn't have a parent before
-    g_->for_each_vertex(fixed, [this](long v) {
+    g_->for_each_vertex(par, [this](long v) {
         if (parent_[v] < 0 && new_parent_[v] >= 0) {
             // Set parent
             parent_[v] = new_parent_[v];
