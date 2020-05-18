@@ -150,7 +150,7 @@ hybrid_bfs::bottom_up_step()
  *  3. Do top-down steps with migrating threads until done
  */
 void
-hybrid_bfs::run_beamer (long source, long alpha, long beta)
+hybrid_bfs::run_beamer (long source, long max_level, long alpha, long beta)
 {
     assert(source < g_->num_vertices());
 
@@ -174,6 +174,8 @@ hybrid_bfs::run_beamer (long source, long alpha, long beta)
                 // hooks_region_begin("bottom_up_step");
                 awake_count = bottom_up_step();
                 queue_.slide_all_windows();
+                // Early exit for k-hop
+                if (queue_.cur_frontier() == max_level) { return; }
                 // hooks_region_end();
             } while (awake_count >= old_awake_count ||
                     (awake_count > g_->num_vertices() / beta));
@@ -185,6 +187,8 @@ hybrid_bfs::run_beamer (long source, long alpha, long beta)
             scout_count = top_down_step_with_migrating_threads();
             // Slide all queues to explore the next frontier
             queue_.slide_all_windows();
+            // Early exit for k-hop
+            if (queue_.cur_frontier() == max_level) { return; }
             // hooks_region_end();
         }
     }
@@ -194,7 +198,7 @@ hybrid_bfs::run_beamer (long source, long alpha, long beta)
  * Run BFS using top-down steps with migrating threads
  */
 void
-hybrid_bfs::run_with_migrating_threads(long source)
+hybrid_bfs::run_with_migrating_threads(long source, long max_level)
 {
     assert(source < g_->num_vertices());
 
@@ -204,7 +208,7 @@ hybrid_bfs::run_with_migrating_threads(long source)
     parent_[source] = source;
 
     // While there are vertices in the queue...
-    while (!queue_.all_empty()) {
+    for (long level = 0; level < max_level && !queue_.all_empty(); ++level) {
         // Explore the frontier
         top_down_step_with_migrating_threads();
         // Slide all queues to explore the next frontier
@@ -216,7 +220,7 @@ hybrid_bfs::run_with_migrating_threads(long source)
  * Run BFS using top-down steps with remote writes
  */
 void
-hybrid_bfs::run_with_remote_writes(long source)
+hybrid_bfs::run_with_remote_writes(long source, long max_level)
 {
     assert(source < g_->num_vertices());
 
@@ -231,6 +235,8 @@ hybrid_bfs::run_with_remote_writes(long source)
         top_down_step_with_remote_writes();
         // Slide all queues to explore the next frontier
         queue_.slide_all_windows();
+        // Early exit for k-hop
+        if (queue_.cur_frontier() == max_level) { return; }
     }
 }
 
@@ -241,7 +247,7 @@ hybrid_bfs::run_with_remote_writes(long source)
  *  3. Do top-down steps with migrating threads until done
  */
 void
-hybrid_bfs::run_with_remote_writes_hybrid(long source, long alpha, long beta)
+hybrid_bfs::run_with_remote_writes_hybrid(long source, long max_level, long alpha, long beta)
 {
     assert(source < g_->num_vertices());
 
@@ -263,6 +269,8 @@ hybrid_bfs::run_with_remote_writes_hybrid(long source, long alpha, long beta)
                 old_awake_count = awake_count;
                 top_down_step_with_remote_writes();
                 queue_.slide_all_windows();
+                // Early exit for k-hop
+                if (queue_.cur_frontier() == max_level) { return; }
                 awake_count = queue_.combined_size();
             } while (awake_count >= old_awake_count ||
                      (awake_count > g_->num_vertices() / beta));
@@ -272,12 +280,13 @@ hybrid_bfs::run_with_remote_writes_hybrid(long source, long alpha, long beta)
             scout_count = top_down_step_with_migrating_threads();
             // Slide all queues to explore the next frontier
             queue_.slide_all_windows();
+            // Early exit for k-hop
+            if (queue_.cur_frontier() == max_level) { return; }
         }
     }
 }
 
-
-
+// TODO: make this handle max_level
 bool
 hybrid_bfs::check(long source)
 {
@@ -412,6 +421,24 @@ hybrid_bfs::count_num_traversed_edges()
     // Divide by two, since each undirected edge is counted twice
     return emu::repl_reduce(*repl_sum, std::plus<>()) / 2;
 }
+
+hybrid_bfs::stats
+hybrid_bfs::compute_stats()
+{
+    stats s;
+    s.num_edges_traversed = count_num_traversed_edges();
+    s.max_level = queue_.cur_frontier();
+
+    s.frontier_size = std::vector<long>(s.max_level, 0);
+
+    for (long level = 0; level < s.max_level; ++level) {
+        emu::repl_for_each(queue_, [&](sliding_queue const& q) {
+            s.frontier_size[level] += queue_.frontier_size(level);
+        });
+    }
+    return s;
+}
+
 
 void
 hybrid_bfs::dump_queue_stats()

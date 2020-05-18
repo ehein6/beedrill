@@ -13,6 +13,7 @@ const struct option long_options[] = {
     {"heavy_threshold"  , required_argument},
     {"num_trials"       , required_argument},
     {"source_vertex"    , required_argument},
+    {"max_level"        , required_argument},
     {"algorithm"        , required_argument},
     {"alpha"            , required_argument},
     {"beta"             , required_argument},
@@ -35,6 +36,7 @@ print_help(const char* argv0)
     LOG("\t--heavy_threshold    Vertices with this many neighbors will be spread across nodelets\n");
     LOG("\t--num_trials         Run BFS this many times.\n");
     LOG("\t--source_vertex      Use this as the source vertex. If unspecified, pick random vertices.\n");
+    LOG("\t--max_level          Stop when the BFS tree is this many levels deep (for K-hop benchmark).\n");
     LOG("\t--algorithm          Select BFS implementation to run\n");
     LOG("\t--alpha              Alpha parameter for direction-optimizing BFS\n");
     LOG("\t--beta               Beta parameter for direction-optimizing BFS\n");
@@ -53,6 +55,7 @@ struct bfs_args
     bool distributed_load;
     long num_trials;
     long source_vertex;
+    long max_level;
     const char* algorithm;
     long alpha;
     long beta;
@@ -70,6 +73,7 @@ struct bfs_args
         args.distributed_load = false;
         args.num_trials = 1;
         args.source_vertex = -1;
+        args.max_level = std::numeric_limits<long>::max();
         args.algorithm = "beamer_hybrid";
         args.alpha = 15;
         args.beta = 18;
@@ -100,6 +104,8 @@ struct bfs_args
                 args.num_trials = atol(optarg);
             } else if (!strcmp(option_name, "source_vertex")) {
                 args.source_vertex = atol(optarg);
+            } else if (!strcmp(option_name, "max_level")) {
+                args.max_level = atol(optarg);
             } else if (!strcmp(option_name, "algorithm")) {
                 args.algorithm = optarg;
             } else if (!strcmp(option_name, "alpha")) {
@@ -126,8 +132,16 @@ struct bfs_args
         }
         if (args.graph_filename == NULL) { LOG( "Missing graph filename\n"); exit(1); }
         if (args.num_trials <= 0) { LOG( "num_trials must be > 0\n"); exit(1); }
+        if (args.max_level <= 0) { LOG( "max_level must be > 0\n"); exit(1); }
         if (args.alpha <= 0) { LOG( "alpha must be > 0\n"); exit(1); }
         if (args.beta <= 0) { LOG( "beta must be > 0\n"); exit(1); }
+
+        if (args.check_results
+        && args.max_level != std::numeric_limits<long>::max()) {
+            // TODO: make hybrid_bfs::check handle max_level
+            LOG("Can't check results when max_level is set");
+            exit(1);
+        }
         return args;
     }
 };
@@ -267,16 +281,16 @@ int main(int argc, char ** argv)
         hooks_region_begin("bfs");
         switch(alg) {
             case (REMOTE_WRITES):
-                bfs->run_with_remote_writes(source);
+                bfs->run_with_remote_writes(source, args.max_level);
                 break;
             case (MIGRATING_THREADS):
-                bfs->run_with_migrating_threads(source);
+                bfs->run_with_migrating_threads(source, args.max_level);
                 break;
             case (REMOTE_WRITES_HYBRID):
-                bfs->run_with_remote_writes_hybrid(source, args.alpha, args.beta);
+                bfs->run_with_remote_writes_hybrid(source, args.max_level, args.alpha, args.beta);
                 break;
             case (BEAMER_HYBRID):
-                bfs->run_beamer(source, args.alpha, args.beta);
+                bfs->run_beamer(source, args.max_level, args.alpha, args.beta);
                 break;
         }
         double time_ms = hooks_region_end();
@@ -287,17 +301,18 @@ int main(int argc, char ** argv)
             } else {
                 LOG("FAIL\n");
                 success = false;
-//                hybrid_bfs_print_tree();
+                // bfs->print_tree();
             }
         }
         // Output results
-        long num_edges_traversed = bfs->count_num_traversed_edges();
-        num_edges_traversed_all_trials += num_edges_traversed;
+        hybrid_bfs::stats stats = bfs->compute_stats();
+        num_edges_traversed_all_trials += stats.num_edges_traversed;
         time_ms_all_trials += time_ms;
-        LOG("Traversed %li edges in %3.2f ms, %3.2f MTEPS \n",
-            num_edges_traversed,
+        LOG("Traversed %li edges in %3.2f ms, %3.2f MTEPS. %li levels in BFS tree.\n",
+            stats.num_edges_traversed,
             time_ms,
-            (1e-6 * num_edges_traversed) / (time_ms / 1000)
+            (1e-6 * stats.num_edges_traversed) / (time_ms / 1000),
+            stats.max_level
         );
     }
 

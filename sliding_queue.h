@@ -25,8 +25,19 @@ private:
 
 public:
 
-    long * begin() { return &buffer_ptr_[start_]; }
-    long * end() { return &buffer_ptr_[end_]; }
+    // Return the index of the current window
+    // (number of times slide_window has been called)
+    long cur_frontier() const { return window_; }
+    // Return number of vertices that are in the nth window
+    // (number of times push_back was called in this window)
+    long frontier_size(long i) const
+    {
+        auto window_start = i == 0 ? 0 : head_ptr_[i - 1];
+        return head_ptr_[i] - window_start;
+    }
+
+    long const* begin() const { return &buffer_ptr_[start_]; }
+    long const* end() const { return &buffer_ptr_[end_]; }
 
     explicit sliding_queue(long size)
     // Each queue only needs to store vertices on the local nodelet
@@ -74,6 +85,13 @@ public:
         return *emu::pmanip::get_nth(this, n);
     }
 
+    // Returns a reference to the copy of T on the Nth nodelet
+    sliding_queue const&
+    get_nth(long n) const
+    {
+        return *emu::pmanip::get_nth(this, n);
+    }
+
     void
     slide_window()
     {
@@ -99,19 +117,19 @@ public:
     }
 
     bool
-    is_empty()
+    is_empty() const
     {
         return start_ == end_;
     }
 
     long
-    size()
+    size() const
     {
         return end_ - start_;
     }
 
     bool
-    all_empty()
+    all_empty() const
     {
         // TODO we could parallelize this. But in the common case, we will
         // find that the first queue is non-empty and exit early.
@@ -124,11 +142,11 @@ public:
     }
 
     long
-    combined_size()
+    combined_size() const
     {
         long size = 0;
         emu::repl_for_each(emu::parallel_policy<8>(), *this,
-            [&size](sliding_queue& self) {
+            [&size](sliding_queue const& self) {
                 emu::remote_add(&size, self.size());
             }
         );
@@ -136,7 +154,7 @@ public:
     }
 
     void
-    dump()
+    dump() const
     {
         for (long i = start_; i < end_; ++i) {
             printf("%li ", buffer_ptr_[i]);
@@ -144,11 +162,11 @@ public:
     }
 
     void
-    dump_all()
+    dump_all() const
     {
         // Call dump() on each copy
         emu::repl_for_each(emu::seq, *this,
-            [](sliding_queue& self) { self.dump(); });
+            [](sliding_queue const& self) { self.dump(); });
     }
 
     template<class Function>

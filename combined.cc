@@ -236,14 +236,17 @@ int main(int argc, char ** argv)
         tc->clear();
 
         long source = pick_random_vertex(*g, rng);
+        long bfs_alpha = 15;
+        long bfs_beta = 18;
+        long bfs_max_level = std::numeric_limits<long>::max();
         LOG("Doing breadth-first search from vertex %li \n", source);
         hooks_region_begin("bfs");
-        bfs->run_beamer(source, /*alpha*/15, /*beta*/18);
+        bfs->run_beamer(source, bfs_max_level, bfs_alpha, bfs_beta);
         double bfs_time_ms = hooks_region_end();
-        long num_edges_traversed = bfs->count_num_traversed_edges();
-        bfs_teps[trial] = num_edges_traversed / (1e-3 * bfs_time_ms);
+        auto bfs_stats = bfs->compute_stats();
+        bfs_teps[trial] = bfs_stats.num_edges_traversed / (1e-3 * bfs_time_ms);
         LOG("Traversed %li edges in %3.2f ms, %3.2f GTEPS\n",
-            num_edges_traversed,
+            bfs_stats.num_edges_traversed,
             bfs_time_ms,
             1e-9 * bfs_teps[trial]
         );

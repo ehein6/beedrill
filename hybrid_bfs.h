@@ -24,6 +24,7 @@ private:
 
     worklist<graph::edge_type> worklist_;
 
+    long count_num_traversed_edges();
     void dump_queue_stats();
 
     long top_down_step_with_remote_writes();
@@ -32,10 +33,10 @@ private:
 
 public:
 
-    void run_with_remote_writes(long source);
-    void run_with_migrating_threads(long source);
-    void run_with_remote_writes_hybrid(long source, long alpha, long beta);
-    void run_beamer(long source, long alpha, long beta);
+    void run_with_remote_writes(long source, long max_level);
+    void run_with_migrating_threads(long source, long max_level);
+    void run_with_remote_writes_hybrid(long source, long max_level, long alpha, long beta);
+    void run_beamer(long source, long max_level, long alpha, long beta);
 
     explicit hybrid_bfs(graph & g);
     hybrid_bfs(const hybrid_bfs& other, emu::shallow_copy tag);
@@ -43,5 +44,15 @@ public:
     void clear();
     bool check(long source);
     void print_tree();
-    long count_num_traversed_edges();
+
+    struct stats {
+        // Depth of the BFS tree
+        long max_level = 0;
+        // Total number of edges touched during the BFS
+        long num_edges_traversed = 0;
+        // Number of vertices in each level
+        std::vector<long> frontier_size;
+    };
+
+    stats compute_stats();
 };
