@@ -45,7 +45,7 @@ function(add_emusim_test name command)
                 -o /dev/null
                 --ignore_starttiming
                 --forward_return_value
-                --log2_nodelet_memory 27
+                -m 27 # log2 memory per channel
                 --initialize_memory
                 --
                 ${command} ${ARGN}
