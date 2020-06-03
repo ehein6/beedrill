@@ -64,9 +64,11 @@ public:
 
     ~graph_base()
     {
-        // Note: Could avoid new/delete here by using a unique_ptr, but we
-        // can't safely replicate those yet.
-        delete edge_storage_;
+        for_each_vertex([this](long v) {
+            if (vertex_out_degree_[v] > 0) {
+                mw_localfree(vertex_out_neighbors_[v]);
+            }
+        });
     }
 
     using edge_type = Edge;
@@ -366,38 +368,6 @@ create_graph_from_edge_list(dist_edge_list & dist_el)
     });
     hooks_region_end();
 
-    // Count how many edges will need to be stored on each nodelet
-    // This is in preparation for the next step, so we can do one big allocation
-    // instead of a bunch of tiny ones.
-    LOG("Counting local edges...\n");
-    hooks_region_begin("count_local_edges");
-    g->num_local_edges_ = 0;
-    g->for_each_vertex([g](long v) {
-        emu::atomic_addms(&g->num_local_edges_, g->vertex_out_degree_[v]);
-    });
-    hooks_region_end();
-
-    LOG("Allocating edge storage...\n");
-    // Run around and compute the largest number of edges on any nodelet
-    long max_edges_per_nodelet = emu::repl_reduce(g->num_local_edges_,
-        [](long lhs, long rhs) { return std::max(lhs, rhs); });
-    // Double-check that we haven't lost any edges
-    assert(2 * g->num_edges_ ==
-           emu::repl_reduce(g->num_local_edges_, std::plus<>()));
-
-    LOG("Will use %li MiB on each nodelet\n", (max_edges_per_nodelet * sizeof(long)) >> 20);
-
-    // Allocate a big stripe, such that there is enough room for the nodelet
-    // with the most local edges
-    // There will be wasted space on the other nodelets
-    g->edge_storage_ = new emu::repl_array<typename Graph::edge_type>(
-        max_edges_per_nodelet);
-
-    // Initialize each copy of next_edge_storage to point to the local array
-    for (long nlet = 0; nlet < NODELETS(); ++nlet) {
-        g->get_nth(nlet).next_edge_storage_ = g->edge_storage_->get_nth(nlet);
-    }
-
     // Assign each edge block a position within the big array
     LOG("Carving edge storage...\n");
     hooks_region_begin("carve_edge_storage");
@@ -405,9 +375,12 @@ create_graph_from_edge_list(dist_edge_list & dist_el)
         // Empty vertices don't need storage
         if (g->vertex_out_degree_[v] > 0) {
             // Local vertices have one edge block on the local nodelet
-            g->vertex_out_neighbors_[v] = emu::atomic_addms(
-                &g->next_edge_storage_,
-                g->vertex_out_degree_[v]
+            using EdgeType = typename Graph::edge_type;
+            g->vertex_out_neighbors_[v] = static_cast<EdgeType*>(
+                mw_localmalloc(
+                    sizeof(EdgeType) * g->vertex_out_degree_[v],
+                    &g->vertex_out_degree_[v]
+                )
             );
             // HACK Prepare to fill
             g->vertex_out_degree_[v] = 0;
