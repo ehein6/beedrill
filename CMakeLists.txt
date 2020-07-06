@@ -59,6 +59,13 @@ endfunction()
 
 set(TEST_GRAPH "/home/ehein6/inputs/graph500-scale12")
 
+# Make sure emu_cxx_utils has been checked out
+file(GLOB EMU_CXX_HEADERS "emu_cxx_utils/*.h")
+list(LENGTH EMU_CXX_HEADERS NUM_EMU_CXX_HEADERS)
+if (NUM_EMU_CXX_HEADERS EQUAL 0)
+    message(FATAL_ERROR "Could not find emu_cxx_utils. Run `git submodule update --init` or re-clone with the `--recursive` flag.")
+endif()
+
 # Add current path to include list so emu_cxx_utils headers can be included
 include_directories(.)
 
